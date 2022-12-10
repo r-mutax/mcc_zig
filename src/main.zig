@@ -1,19 +1,22 @@
 const std = @import("std");
+const expect = std.testing.expect;
+const dprint = std.debug.print;
+
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    const stderr = std.io.getStdErr();
+    const ostream = std.io.getStdOut();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    const args = std.os.argv;
+    if (args.len != 2) {
+        _ = try stderr.write("[error] invalid argument num.\n");
+    }
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+    _ = try ostream.write(".intel_syntax noprefix\n");
+    _ = try ostream.write(".global main\n");
+    _ = try ostream.write("main:\n");
+    _ = try ostream.write("  mov rax, 12\n");
+    _ = try ostream.write("  ret\n");
 }
 
 test "simple test" {
