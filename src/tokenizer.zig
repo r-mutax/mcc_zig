@@ -85,6 +85,16 @@ const Tokenizer = struct{
         }
     }
 
+    pub fn expect_number(self: *Tokenizer) u32 {
+        const tok: Token = self.tokens.items[self.idx];
+        if(tok.kind == TokenKind.TK_NUM){
+            self.idx += 1;
+            return tok.val;
+        } else {
+            return false;
+        }
+    }
+
     pub fn getToken(self: *Tokenizer) Token {
         const tok: Token = self.tokens.items[self.idx];
         self.idx += 1;
@@ -148,6 +158,10 @@ test "Tokenizer test" {
 
     for(kind_list) | kind | {
         const tok = tokenizer.getToken();
+
+        if(kind == TokenKind.TK_NUM){
+            try expect(tok.val == 3);
+        }
         try expect(kind == tok.kind);
     }
 }
