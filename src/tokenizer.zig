@@ -85,14 +85,39 @@ const Tokenizer = struct{
         }
     }
 
-    pub fn expect_number(self: *Tokenizer) u32 {
+    pub fn consume(self: *Tokenizer, op: u32) bool {
+        const tok: Token = self.items[self.idx];
+        if((tok.kind != TokenKind.TK_PUNCT)
+            or (tok.str[0] != op)){
+            return false;
+        }
+        self.idx += 1;
+        return true;
+    }
+
+    pub fn expect(self: *Tokenizer, op: u32) !void {
+        const tok: Token = self.tokens.items[self.idx];
+        if((tok.kind != TokenKind.TK_PUNCT)
+            or (tok.str[0] != op))
+        {
+            return TokenizeError.UnexpectedToken;
+        }
+        self.idx += 1;
+    }
+
+    pub fn expect_number(self: *Tokenizer) !u32 {
         const tok: Token = self.tokens.items[self.idx];
         if(tok.kind == TokenKind.TK_NUM){
             self.idx += 1;
             return tok.val;
         } else {
-            return false;
+            return TokenizeError.UnexpectedToken;
         }
+    }
+
+    pub fn is_eof(self: *Tokenizer) bool {
+        const tok: Token = self.tokens.items[self.idx];
+        return tok.kind == TokenKind.TK_EOF;
     }
 
     pub fn getToken(self: *Tokenizer) Token {
@@ -149,19 +174,9 @@ test "Tokenizer test" {
     var tokenizer = Tokenizer.init(str);
     tokenizer.tokenize();
 
-    var kind_list = [_]TokenKind{
-        TokenKind.TK_NUM,
-        TokenKind.TK_PUNCT,
-        TokenKind.TK_NUM,
-        TokenKind.TK_EOF,
-    };
-
-    for(kind_list) | kind | {
-        const tok = tokenizer.getToken();
-
-        if(kind == TokenKind.TK_NUM){
-            try expect(tok.val == 3);
-        }
-        try expect(kind == tok.kind);
-    }
+    _ = try tokenizer.expect_number();
+    _ = try tokenizer.expect('+');
+    _ = try tokenizer.expect_number();
+    const tok = tokenizer.getToken();
+    _ = try expect(tok.kind == TokenKind.TK_EOF);
 }
