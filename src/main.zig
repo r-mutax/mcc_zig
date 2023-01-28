@@ -16,7 +16,7 @@ pub fn main() !void {
     var src = args[1][0..countChars(args[1]) : 0];
 
     var tokenizer = Tokenizer.init(src);
-    tokenizer.tokenize();
+    try tokenizer.tokenize();
 
     _ = try stdout.writeAll(".intel_syntax noprefix\n");
     _ = try stdout.writeAll(".global main\n");
