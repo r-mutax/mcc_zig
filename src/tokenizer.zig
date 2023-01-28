@@ -19,7 +19,7 @@ const Token = struct {
     str: []const u8 = undefined,
 };
 
-const Tokenizer = struct{
+pub const Tokenizer = struct{
     buffer: []const u8,
     index: usize,
     tokens: std.ArrayList(Token) = undefined,
@@ -86,7 +86,7 @@ const Tokenizer = struct{
     }
 
     pub fn consume(self: *Tokenizer, op: u32) bool {
-        const tok: Token = self.items[self.idx];
+        const tok: Token = self.tokens.items[self.idx];
         if((tok.kind != TokenKind.TK_PUNCT)
             or (tok.str[0] != op)){
             return false;
