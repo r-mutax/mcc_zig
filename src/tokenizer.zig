@@ -1,4 +1,6 @@
 const std = @import("std");
+const err = @import("./error.zig");
+
 const expect = std.testing.expect;
 
 const TokenizeError = error {
@@ -15,8 +17,10 @@ const TokenKind = enum {
 
 const Token = struct {
     kind: TokenKind,
-    val: u32,
+    val: u32 = 0,
     str: []const u8 = undefined,
+    pos: usize = 0,
+    len: u32 = 0,
 };
 
 pub const Tokenizer = struct{
@@ -36,33 +40,6 @@ pub const Tokenizer = struct{
         return self.buffer[start..end];
     }
 
-    fn readNumber(self: *Tokenizer) !Token{
-        var n:u32 = 0;
-
-        // Search not a number
-        while(true) : (n += 1) {
-            if(self.buffer.len <= self.index + n){
-                break;
-            }
-            const c: u8 = self.buffer[self.index + n];
-            if(!std.ascii.isDigit(c)){
-                break;
-            }
-        }
-
-        if(n == 0){
-            return TokenizeError.NotANumber;
-        }
-
-        const num_slice = getSlice(self, n) catch unreachable;
-        const val = std.fmt.parseUnsigned(u32, num_slice, 10) catch unreachable;
-        self.index += n;
-        return Token {
-            .kind = TokenKind.TK_NUM,
-            .val = val,
-        };
-    }
-
     pub fn init(buffer: [:0]const u8) Tokenizer {
         var tokenizer: Tokenizer = Tokenizer{
             .buffer = buffer,
@@ -76,19 +53,22 @@ pub const Tokenizer = struct{
 
     fn appendTokenNoVal(self: *Tokenizer, kind: TokenKind) void {
         self.tokens.append(
-            Token{
+            Token {
                 .kind = kind,
-                .val = 0
+                .val = 0,
+                .pos = self.index,
             }
         ) catch unreachable;
     }
 
     fn appendToken(self: *Tokenizer, kind: TokenKind, len: u32) !void {
         self.tokens.append(
-            Token{
+            Token {
                 .kind = kind,
                 .val = 0,
-                .str = try getSlice(self, len)
+                .str = try getSlice(self, len),
+                .pos = self.index,
+                .len = len,
             }
         ) catch unreachable;
     }
@@ -117,6 +97,8 @@ pub const Tokenizer = struct{
             Token {
                 .kind = TokenKind.TK_NUM,
                 .val = val,
+                .pos = self.index - (digits - 1),
+                .len = digits,
             }
         ) catch unreachable;
     }
@@ -167,6 +149,7 @@ pub const Tokenizer = struct{
         if((tok.kind != TokenKind.TK_PUNCT)
             or (tok.str[0] != op))
         {
+            //err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
             return TokenizeError.UnexpectedToken;
         }
         self.idx += 1;
@@ -178,6 +161,7 @@ pub const Tokenizer = struct{
             self.idx += 1;
             return tok.val;
         } else {
+            //err.error_at(self.buffer[0..self.buffer.len], tok.pos, "error: unexpected token.\n", .{});
             return TokenizeError.UnexpectedToken;
         }
     }
