@@ -1,7 +1,7 @@
 const std = @import("std");
 const stderr = std.io.getStdErr().writer();
 
-pub fn error_at(line: [:0] const u8, pos: u8, comptime fmt: []const u8, args: anytype) !void {
+pub fn error_at(line: [:0] const u8, pos: usize, comptime fmt: []const u8, args: anytype) !void {
     _ = try stderr.print("{s}\n", .{ line });
     
     var p = pos;

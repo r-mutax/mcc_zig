@@ -149,7 +149,7 @@ pub const Tokenizer = struct{
         if((tok.kind != TokenKind.TK_PUNCT)
             or (tok.str[0] != op))
         {
-            //err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
+            try err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
             return TokenizeError.UnexpectedToken;
         }
         self.idx += 1;
@@ -161,7 +161,7 @@ pub const Tokenizer = struct{
             self.idx += 1;
             return tok.val;
         } else {
-            //err.error_at(self.buffer[0..self.buffer.len], tok.pos, "error: unexpected token.\n", .{});
+            try err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
             return TokenizeError.UnexpectedToken;
         }
     }
