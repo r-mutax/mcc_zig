@@ -7,6 +7,8 @@ const Token = struct {
     pub const Tag = enum {
         tk_add,
         tk_sub,
+        tk_mul,
+        tk_div,
         tk_num,
         tk_eof,
         tk_invalid,
@@ -34,6 +36,8 @@ pub const Tokenizer = struct {
         start,
         plus,
         minus,
+        multiple,
+        division,
         int,
     };
 
@@ -64,6 +68,12 @@ pub const Tokenizer = struct {
                     '-' => {
                         state = .minus;
                     },
+                    '*' => {
+                        state = .multiple;
+                    },
+                    '/' => {
+                        state = .division;
+                    },
                     '0'...'9' => {
                         state = .int;
                         result.tag = .tk_num;
@@ -83,6 +93,14 @@ pub const Tokenizer = struct {
                     result.tag = .tk_sub;
                     break;
                 },
+                .multiple => {
+                    result.tag = .tk_mul;
+                    break;
+                },
+                .division => {
+                    result.tag = .tk_div;
+                    break;
+                },
                 .int => {
                     switch(c){
                         '0' ... '9' => {},
@@ -98,7 +116,7 @@ pub const Tokenizer = struct {
 };
 
 test "tokenizer test" {
-    try testTokenize("+ +-- 323 ", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num});
+    try testTokenize("+ +-- 323 * /", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div});
 }
 
 
