@@ -3,182 +3,113 @@ const err = @import("./error.zig");
 
 const expect = std.testing.expect;
 
-const TokenizeError = error {
-    UnexpectedToken,
-    NotANumber,
-    OutOfBuffer,
-};
-
-const TokenKind = enum {
-    TK_PUNCT,
-    TK_NUM,
-    TK_EOF
-};
-
 const Token = struct {
-    kind: TokenKind,
-    val: u32 = 0,
-    str: []const u8 = undefined,
-    pos: usize = 0,
-    len: u32 = 0,
+    pub const Tag = enum {
+        tk_add,
+        tk_sub,
+        tk_num,
+        tk_eof,
+        tk_invalid,
+    };
+    pub const Loc = struct {
+        start: usize,
+        end: usize,
+    };
+    tag: Tag,
+    loc: Loc,
 };
 
-pub const Tokenizer = struct{
-    buffer: []const u8,
+pub const Tokenizer = struct {
+    buffer: [:0] const u8,
     index: usize,
-    tokens: std.ArrayList(Token) = undefined,
-    idx: usize,
-
-    fn getSlice(self: *Tokenizer, num: u32) ![]const u8{
-        const start:usize = self.index;
-        const end:usize = self.index + num;
-
-        if(end > self.buffer.len){
-            return error.OutOfBuffer;
-        }
-
-        return self.buffer[start..end];
-    }
-
+    
     pub fn init(buffer: [:0]const u8) Tokenizer {
-        var tokenizer: Tokenizer = Tokenizer{
+        return Tokenizer {
             .buffer = buffer,
             .index = 0,
-            .idx = 0,
+        };
+    }
+
+    const State = enum {
+        start,
+        plus,
+        minus,
+        int,
+    };
+
+    pub fn next(self: *Tokenizer) Token {
+        var result = Token{
+            .tag = .tk_eof,
+            .loc = .{
+                .start = self.index,
+                .end = undefined,
+            },
         };
 
-        tokenizer.tokens = std.ArrayList(Token).init(std.heap.page_allocator);
-        return tokenizer;
-    }
-
-    fn appendTokenNoVal(self: *Tokenizer, kind: TokenKind) void {
-        self.tokens.append(
-            Token {
-                .kind = kind,
-                .val = 0,
-                .pos = self.index,
-            }
-        ) catch unreachable;
-    }
-
-    fn appendToken(self: *Tokenizer, kind: TokenKind, len: u32) !void {
-        self.tokens.append(
-            Token {
-                .kind = kind,
-                .val = 0,
-                .str = try getSlice(self, len),
-                .pos = self.index,
-                .len = len,
-            }
-        ) catch unreachable;
-    }
-
-    fn appentTokenNum(self: *Tokenizer) !void {
-        var digits: u32 = 0;
-        while(true) : (digits += 1) {
-            if(self.buffer.len <= self.index + digits){
-                break;
-            }
-
-            const c = self.buffer[self.index + digits];
-            if(!std.ascii.isDigit(c)){
-                break;
-            }
-        }
-
-        if(digits == 0) {
-            return TokenizeError.NotANumber;
-        }
-
-        const num_slice = getSlice(self, digits) catch unreachable;
-        const val = std.fmt.parseUnsigned(u32, num_slice, 10) catch unreachable;
-        self.index += digits - 1;
-        self.tokens.append(
-            Token {
-                .kind = TokenKind.TK_NUM,
-                .val = val,
-                .pos = self.index - (digits - 1),
-                .len = digits,
-            }
-        ) catch unreachable;
-    }
-
-    pub fn tokenize(self: *Tokenizer) !void {
-        self.index = 0;
-        while(true) : (self.index += 1) {
-            if(self.index == self.buffer.len){
-                appendTokenNoVal(self, TokenKind.TK_EOF);
-                return;
-            }
-
+        var state : State = .start;
+        while(true) : (self.index += 1){
             const c = self.buffer[self.index];
-
-            switch(c){
-                0 => {
-                    appendTokenNoVal(self, TokenKind.TK_EOF);
-                    return;
+            switch(state) {
+                .start => switch(c){
+                    0 => {
+                        break;
+                    },
+                    ' ', '\n', '\t', '\r' => {
+                        // spaceを飛ばすためstartを+1する。
+                        result.loc.start = self.index + 1;
+                    },
+                    '+' => {
+                        state = .plus;
+                    },
+                    '-' => {
+                        state = .minus;
+                    },
+                    '0'...'9' => {
+                        state = .int;
+                        result.tag = .tk_num;
+                    },
+                    else => {
+                        result.tag = .tk_invalid;
+                        result.loc.end = self.index;
+                        self.index += 1;
+                        return result;
+                    },
                 },
-                '+', '-' => {
-                    try appendToken(self, TokenKind.TK_PUNCT, 1);
+                .plus => {
+                    result.tag = .tk_add;
+                    break;
                 },
-                ' ', '\t', '\r', '\n' => {
-                    continue;
+                .minus => {
+                    result.tag = .tk_sub;
+                    break;
                 },
-                '0'...'9' => {
-                    try appentTokenNum(self);
+                .int => {
+                    switch(c){
+                        '0' ... '9' => {},
+                        else => break,
+                    }
                 },
-                else => {
-                    return TokenizeError.UnexpectedToken;
-                }
             }
         }
-    }
 
-    pub fn consume(self: *Tokenizer, op: u32) bool {
-        const tok: Token = self.tokens.items[self.idx];
-        if((tok.kind != TokenKind.TK_PUNCT)
-            or (tok.str[0] != op)){
-            return false;
-        }
-        self.idx += 1;
-        return true;
-    }
-
-    pub fn expect(self: *Tokenizer, op: u32) !void {
-        const tok: Token = self.tokens.items[self.idx];
-        if((tok.kind != TokenKind.TK_PUNCT)
-            or (tok.str[0] != op))
-        {
-            try err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
-            return TokenizeError.UnexpectedToken;
-        }
-        self.idx += 1;
-    }
-
-    pub fn expect_number(self: *Tokenizer) !u32 {
-        const tok: Token = self.tokens.items[self.idx];
-        if(tok.kind == TokenKind.TK_NUM){
-            self.idx += 1;
-            return tok.val;
-        } else {
-            try err.error_at(self.buffer[0..self.buffer.len:0], tok.pos, "error: unexpected token.\n", .{});
-            return TokenizeError.UnexpectedToken;
-        }
-    }
-
-    pub fn is_eof(self: *Tokenizer) bool {
-        const tok: Token = self.tokens.items[self.idx];
-        return tok.kind == TokenKind.TK_EOF;
+        result.loc.end = self.index;
+        return result;
     }
 };
 
-test "Tokenizer test" {
-    const str = "3+3";
-    var tokenizer = Tokenizer.init(str);
-    try tokenizer.tokenize();
+test "tokenizer test" {
+    try testTokenize("+ +-- 323 ", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num});
+}
 
-    _ = try tokenizer.expect_number();
-    _ = try tokenizer.expect('+');
-    _ = try tokenizer.expect_number();
-    _ = try expect(tokenizer.is_eof());
+
+fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {
+    var tokenizer = Tokenizer.init(source);
+    for(expected_token_tags) |expected_token_tag| {
+        const token = tokenizer.next();
+        try std.testing.expectEqual(expected_token_tag, token.tag);
+    }
+    const last_token = tokenizer.next();
+    try std.testing.expectEqual(Token.Tag.tk_eof, last_token.tag);
+    try std.testing.expectEqual(source.len, last_token.loc.start);
+    try std.testing.expectEqual(source.len, last_token.loc.end);
 }
