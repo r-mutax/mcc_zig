@@ -54,6 +54,13 @@ pub const Codegen = struct {
             Node.Tag.nd_sub => {
                 _ = try stdout.writeAll("  sub rax, rdi\n");
             },
+            Node.Tag.nd_mul => {
+                _ = try stdout.writeAll("  imul rax, rdi\n");
+            },
+            Node.Tag.nd_div => {
+                _ = try stdout.writeAll("  cqo\n");
+                _ = try stdout.writeAll("  idiv rdi\n");
+            },
             else => {
 
             }
