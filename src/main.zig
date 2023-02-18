@@ -14,7 +14,7 @@ pub fn main() !void {
     }
     var src = args[1][0..countChars(args[1]) : 0];
     var codegen = CodeGen.Codegen.init(std.heap.page_allocator, src);
-    _ = codegen.codegen();
+    try codegen.codegen();
 }
 
 fn countChars(chars: [*:0]u8) usize {

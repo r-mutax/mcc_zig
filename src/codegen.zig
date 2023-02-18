@@ -18,45 +18,47 @@ pub const Codegen = struct {
         return result;
     }
 
-    pub fn codegen(self: *Codegen) usize {
+    pub fn codegen(self: *Codegen) !void {
         _ = self.parser.parse();
 
         // TODO: defer parser.deinit();
 
-        _ = stdout.writeAll(".intel_syntax noprefix\n") catch unreachable;
-        _ = stdout.writeAll(".global main\n") catch unreachable;
-        _ = stdout.writeAll("main:\n") catch unreachable;
+        _ = try stdout.writeAll(".intel_syntax noprefix\n");
+        _ = try stdout.writeAll(".global main\n");
+        _ = try stdout.writeAll("main:\n");
 
         const root = self.parser.root;
-        self.gen(root);
-        _ = stdout.writeAll("  pop rax\n") catch unreachable;
-        _ = stdout.writeAll("  ret\n") catch unreachable;
+        try self.gen(root);
+        _ = try stdout.writeAll("  pop rax\n");
+        _ = try stdout.writeAll("  ret\n");
 
-
-        return root;
+        return;
     }
 
-    fn gen(self: *Codegen, node: usize) void {
+    fn gen(self: *Codegen, node: usize) !void {
         if(self.parser.getNodeTag(node) == Node.Tag.nd_num){
             const val = self.parser.getNodeValue(node);
-            _ = stdout.print("  push {}\n", .{val}) catch unreachable;
+            _ = try stdout.print("  push {}\n", .{val});
             return;
         }
 
-        self.gen(self.parser.getNodeLhs(node));
-        self.gen(self.parser.getNodeRhs(node));
-        _ = stdout.writeAll("  pop rdi\n") catch unreachable;
-        _ = stdout.writeAll("  pop rax\n") catch unreachable;
+        try self.gen(self.parser.getNodeLhs(node));
+        try self.gen(self.parser.getNodeRhs(node));
+        _ = try stdout.writeAll("  pop rdi\n") ;
+        _ = try stdout.writeAll("  pop rax\n") ;
 
         switch(self.parser.getNodeTag(node)){
             Node.Tag.nd_add => {
-                _ = stdout.writeAll("  add rax, rdi\n") catch unreachable;
+                _ = try stdout.writeAll("  add rax, rdi\n");
+            },
+            Node.Tag.nd_sub => {
+                _ = try stdout.writeAll("  sub rax, rdi\n");
             },
             else => {
 
             }
         }
-        _ = stdout.writeAll("  push rax\n") catch unreachable;
+        try stdout.writeAll("  push rax\n");
     }
 
 };
