@@ -3,7 +3,7 @@ const err = @import("./error.zig");
 
 const expect = std.testing.expect;
 
-const Token = struct {
+pub const Token = struct {
     pub const Tag = enum {
         tk_add,
         tk_sub,
@@ -59,7 +59,6 @@ pub const Tokenizer = struct {
                         break;
                     },
                     ' ', '\n', '\t', '\r' => {
-                        // spaceを飛ばすためstartを+1する。
                         result.loc.start = self.index + 1;
                     },
                     '+' => {
@@ -112,6 +111,15 @@ pub const Tokenizer = struct {
 
         result.loc.end = self.index;
         return result;
+    }
+
+    pub fn getNumValue(self: *Tokenizer, start: usize) u32 {
+        // TODO : add error handling
+
+        self.index = start;
+        const token = self.next();
+        const val = std.fmt.parseUnsigned(u32, self.buffer[token.loc.start..token.loc.end], 10) catch unreachable;
+        return val;
     }
 };
 
