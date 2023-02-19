@@ -22,5 +22,9 @@ assert 6 "9-5+2"
 assert 6 "6/3*2+2"
 assert 16 "((4/2)*2)*4"
 assert 1 "-3*2 + 7"
+assert 1 "0==0"
+assert 0 "3!=3"
+assert 1 "3<5"
+assert 2 "(2>1) + (3<=5)"
 
 echo OK

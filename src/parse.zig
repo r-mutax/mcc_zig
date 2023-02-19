@@ -23,6 +23,14 @@ pub const Node = struct {
             // lhs / rhs
         nd_num,
             // lhs
+        nd_equal,
+            // lhs == rhs
+        nd_not_equal,
+            // lhs != rhs
+        nd_gt,
+            // lhs < rhs
+        nd_ge,
+            // lhs <= rhs
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -118,7 +126,87 @@ pub const Parser = struct {
         return self.tokens.items(.tag)[self.tkidx];
     }
 
+    // expr = equality
+    // equality = relational ( '==' relational | '!=' relational)
+    // relational = add ( '<' add | '<=' add | '>' add | '>=' add)
+    // add = mul ( '+' mul | '/' mul )
+    // mul = unary ( '*' unary | '/' unary )
+    // unary = ( '+' | '-' )? primary
+    // primary = ( num | '(' expr ')' )
+
     fn parseExpr(self: *Parser) usize {
+        return self.parseEquality();
+    }
+
+    fn parseEquality(self: *Parser) usize {
+        var lhs = self.parseRelational();
+
+        while(true){
+            switch(self.currentToken()){
+                .tk_equal => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_equal,
+                        .main_token = self.nextToken(),
+                        .lhs = lhs,
+                        .rhs = self.parseRelational(),
+                    });
+                },
+                .tk_not_equal => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_not_equal,
+                        .main_token = self.nextToken(),
+                        .lhs = lhs,
+                        .rhs = self.parseRelational(),
+                    });
+                },
+                else => return lhs,
+            }
+        }
+    }
+
+    fn parseRelational(self: *Parser) usize {
+        var lhs = self.parseAdd();
+
+        while(true){
+            switch(self.currentToken()){
+                .tk_l_angle_bracket => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_gt,
+                        .main_token = self.nextToken(),
+                        .lhs = lhs,
+                        .rhs = self.parseAdd(),
+                    });
+                },
+                .tk_l_angle_bracket_equal => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_ge,
+                        .main_token = self.nextToken(),
+                        .lhs = lhs,
+                        .rhs = self.parseAdd(),
+                    });
+                },
+                .tk_r_angle_bracket => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_gt,
+                        .main_token = self.nextToken(),
+                        .lhs = self.parseAdd(),
+                        .rhs = lhs,
+                    });
+                },
+                .tk_r_angle_bracket_equal => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_ge,
+                        .main_token = self.nextToken(),
+                        .lhs = self.parseAdd(),
+                        .rhs = lhs,
+                    });
+                },
+                else => return lhs,            
+            }
+        }
+    }
+
+    fn parseAdd(self: *Parser) usize {
         var lhs = self.parseMultiple();
 
         while(true) {
@@ -213,7 +301,10 @@ pub const Parser = struct {
                 _ = self.nextToken();
                 return node;
             },
-            else => return TokenError.UnexpectedToken,
+            else => {
+                _ = try stderr.print("{}\n", .{self.currentToken()});
+                return TokenError.UnexpectedToken;
+            },
         }
     }
 };

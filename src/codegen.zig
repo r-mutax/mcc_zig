@@ -61,6 +61,26 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  cqo\n");
                 _ = try stdout.writeAll("  idiv rdi\n");
             },
+            Node.Tag.nd_equal=> {
+                _ = try stdout.writeAll("  cmp rax, rdi\n");
+                _ = try stdout.writeAll("  sete al\n");
+                _ = try stdout.writeAll("  movzb rax, al\n");
+            },
+            Node.Tag.nd_not_equal=> {
+                _ = try stdout.writeAll("  cmp rax, rdi\n");
+                _ = try stdout.writeAll("  setne al\n");
+                _ = try stdout.writeAll("  movzb rax, al\n");
+            },
+            Node.Tag.nd_gt => {
+                _ = try stdout.writeAll("  cmp rax, rdi\n");
+                _ = try stdout.writeAll("  setl al\n");
+                _ = try stdout.writeAll("  movzb rax, al\n");
+            },
+            Node.Tag.nd_ge => {
+                _ = try stdout.writeAll("  cmp rax, rdi\n");
+                _ = try stdout.writeAll("  setle al\n");
+                _ = try stdout.writeAll("  movzb rax, al\n");
+            },
             else => {
 
             }

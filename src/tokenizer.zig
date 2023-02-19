@@ -20,6 +20,12 @@ pub const Token = struct {
         tk_r_paren,
         tk_incr,
         tk_decr,
+        tk_equal,
+        tk_not_equal,
+        tk_l_angle_bracket,         // <
+        tk_l_angle_bracket_equal,   // <=
+        tk_r_angle_bracket,         // >
+        tk_r_angle_bracket_equal,   // >=
     };
     pub const Loc = struct {
         start: usize,
@@ -49,6 +55,10 @@ pub const Tokenizer = struct {
         int,
         l_paren,
         r_paren,
+        equal,
+        exclamation,
+        l_angle_bracket,
+        r_angle_bracket,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -88,6 +98,18 @@ pub const Tokenizer = struct {
                     },
                     ')' => {
                         state = .r_paren;
+                    },
+                    '=' => {
+                        state = .equal;
+                    },
+                    '!' => {
+                        state = .exclamation;
+                    },
+                    '<' => {
+                        state = .l_angle_bracket;
+                    },
+                    '>' => {
+                        state = .r_angle_bracket;
                     },
                     '0'...'9' => {
                         state = .int;
@@ -143,7 +165,53 @@ pub const Tokenizer = struct {
                 .r_paren => {
                     result.tag = .tk_r_paren;
                     break;
-                }
+                },
+                .equal => {
+                    switch(c){
+                        '=' => {
+                            result.tag = .tk_equal;
+                            self.index += 1;
+                            break;
+                        },
+                        else => break,
+                    }
+                },
+                .exclamation => {
+                    switch(c) {
+                        '=' => {
+                            result.tag = .tk_not_equal;
+                            self.index += 1;
+                            break;
+                        },
+                        else => break,
+                    }
+                },
+                .l_angle_bracket => {
+                    switch(c){
+                        '=' => {
+                            result.tag = .tk_l_angle_bracket_equal;
+                            self.index += 1;
+                            break;
+                        },
+                        else => {
+                            result.tag = .tk_l_angle_bracket;
+                            break;
+                        }
+                    }
+                },
+                .r_angle_bracket => {
+                    switch(c){
+                        '=' => {
+                            result.tag = .tk_r_angle_bracket_equal;
+                            self.index += 1;
+                            break;
+                        },
+                        else => {
+                            result.tag = .tk_r_angle_bracket;
+                            break;
+                        }
+                    }
+                },
             }
         }
 
