@@ -18,8 +18,8 @@ assert() {
 
 assert 0 0
 assert 42 42
-assert 6 "3 +  3"
-assert 4 "9-5"
+assert 6 "9-5+2"
 assert 6 "6/3*2+2"
+assert 16 "((4/2)*2)*4"
 
 echo OK

@@ -3,6 +3,10 @@ const err = @import("./error.zig");
 
 const expect = std.testing.expect;
 
+pub const TokenError = error {
+    UnexpectedToken,
+};
+
 pub const Token = struct {
     pub const Tag = enum {
         tk_add,
@@ -12,6 +16,8 @@ pub const Token = struct {
         tk_num,
         tk_eof,
         tk_invalid,
+        tk_l_paren,
+        tk_r_paren,
     };
     pub const Loc = struct {
         start: usize,
@@ -39,6 +45,8 @@ pub const Tokenizer = struct {
         multiple,
         division,
         int,
+        l_paren,
+        r_paren,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -73,6 +81,12 @@ pub const Tokenizer = struct {
                     '/' => {
                         state = .division;
                     },
+                    '(' => {
+                        state = .l_paren;
+                    },
+                    ')' => {
+                        state = .r_paren;
+                    },
                     '0'...'9' => {
                         state = .int;
                         result.tag = .tk_num;
@@ -106,6 +120,14 @@ pub const Tokenizer = struct {
                         else => break,
                     }
                 },
+                .l_paren => {
+                    result.tag = .tk_l_paren;
+                    break;
+                },
+                .r_paren => {
+                    result.tag = .tk_r_paren;
+                    break;
+                }
             }
         }
 

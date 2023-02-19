@@ -9,6 +9,7 @@ pub const TokenList = std.MultiArrayList(struct {
     tag: Token.Tag,
     start: usize,
 });
+const TokenError = Tokenizer.TokenError;
 
 pub const Node = struct {
     pub const Tag = enum {
@@ -106,6 +107,10 @@ pub const Parser = struct {
         return result;
     }
 
+    fn currentToken(self: *Parser) Token.Tag {
+        return self.tokens.items(.tag)[self.tkidx];
+    }
+
     fn parseExpr(self: *Parser) usize {
         var lhs = self.parseMultiple();
 
@@ -134,16 +139,16 @@ pub const Parser = struct {
     }
 
     fn parseMultiple(self: *Parser) usize {
-        var lhs = self.parsePrimary().?;
+        var lhs = self.parsePrimary() catch unreachable;
 
         while(true) {
-            switch(self.tokens.items(.tag)[self.tkidx]){
+            switch(self.currentToken()){
                 .tk_mul => {
                     lhs = self.addNode(.{
                         .tag = .nd_mul,
                         .main_token = self.nextToken(),
                         .lhs = lhs,
-                        .rhs = self.parsePrimary().?,
+                        .rhs = self.parsePrimary() catch unreachable,
                     });
                 },
                 .tk_div=> {
@@ -151,7 +156,7 @@ pub const Parser = struct {
                         .tag = .nd_div,
                         .main_token = self.nextToken(),
                         .lhs = lhs,
-                        .rhs = self.parsePrimary().?,
+                        .rhs = self.parsePrimary()  catch unreachable,
                     });
                 },
                 else => return lhs,
@@ -159,13 +164,25 @@ pub const Parser = struct {
         }
     }
 
-    fn parsePrimary(self: *Parser) ?usize {
-        switch(self.tokens.items(.tag)[self.tkidx]){
+    fn parsePrimary(self: *Parser) !usize {
+        switch(self.currentToken()){
             .tk_num => return self.addNode(.{
                         .tag = .nd_num,
                         .main_token = self.nextToken(),
                     }),
-            else => return null,
+            .tk_l_paren => {
+                const main_token = self.nextToken();
+                const node = self.parseExpr();
+                self.nodes.items(.main_token)[node] = main_token;
+//                node.main_token = main_token;
+
+                if(self.currentToken() != Token.Tag.tk_r_paren){
+                    return TokenError.UnexpectedToken;
+                }
+                _ = self.nextToken();
+                return node;
+            },
+            else => return TokenError.UnexpectedToken,
         }
     }
 };
