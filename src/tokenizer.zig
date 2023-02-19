@@ -18,6 +18,8 @@ pub const Token = struct {
         tk_invalid,
         tk_l_paren,
         tk_r_paren,
+        tk_incr,
+        tk_decr,
     };
     pub const Loc = struct {
         start: usize,
@@ -99,11 +101,25 @@ pub const Tokenizer = struct {
                     },
                 },
                 .plus => {
-                    result.tag = .tk_add;
+                    switch(c){
+                        '+' => {
+                            result.tag = .tk_incr;
+                        },
+                        else => {
+                            result.tag = .tk_add;
+                        }
+                    }
                     break;
                 },
                 .minus => {
-                    result.tag = .tk_sub;
+                    switch(c){
+                        '+' => {
+                            result.tag = .tk_decr;
+                        },
+                        else => {
+                            result.tag = .tk_sub;
+                        }
+                    }
                     break;
                 },
                 .multiple => {
