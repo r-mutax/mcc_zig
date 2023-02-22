@@ -21,11 +21,14 @@ pub const Token = struct {
         tk_incr,
         tk_decr,
         tk_equal,
+        tk_assign,
         tk_not_equal,
         tk_l_angle_bracket,         // <
         tk_l_angle_bracket_equal,   // <=
         tk_r_angle_bracket,         // >
         tk_r_angle_bracket_equal,   // >=
+        tk_identifier,
+        tk_semicoron,
     };
     pub const Loc = struct {
         start: usize,
@@ -59,6 +62,8 @@ pub const Tokenizer = struct {
         exclamation,
         l_angle_bracket,
         r_angle_bracket,
+        identifier,
+        semicoron,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -111,9 +116,16 @@ pub const Tokenizer = struct {
                     '>' => {
                         state = .r_angle_bracket;
                     },
+                    ';' => {
+                        state = .semicoron;
+                    },
                     '0'...'9' => {
                         state = .int;
                         result.tag = .tk_num;
+                    },
+                    'a'...'z', 'A'...'Z', '_' => {
+                        state = .identifier;
+                        result.tag = .tk_identifier;
                     },
                     else => {
                         result.tag = .tk_invalid;
@@ -121,6 +133,14 @@ pub const Tokenizer = struct {
                         self.index += 1;
                         return result;
                     },
+                },
+                .identifier => {
+                    switch(c) {
+                        'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
+                        else => {
+                            break;
+                        }
+                    }
                 },
                 .plus => {
                     switch(c){
@@ -171,10 +191,12 @@ pub const Tokenizer = struct {
                         '=' => {
                             result.tag = .tk_equal;
                             self.index += 1;
-                            break;
                         },
-                        else => break,
+                        else => {
+                            result.tag = .tk_assign;
+                        },
                     }
+                    break;
                 },
                 .exclamation => {
                     switch(c) {
@@ -212,6 +234,10 @@ pub const Tokenizer = struct {
                         }
                     }
                 },
+                .semicoron => {
+                    result.tag = .tk_semicoron;
+                    break;
+                }
             }
         }
 
@@ -227,10 +253,16 @@ pub const Tokenizer = struct {
         const val = std.fmt.parseUnsigned(u32, self.buffer[token.loc.start..token.loc.end], 10) catch unreachable;
         return val;
     }
+
+    pub fn getSlice(self: *Tokenizer, start: usize) [] const u8 {
+        self.index = start;
+        const token = self.next();
+        return self.buffer[token.loc.start..token.loc.end];
+    }
 };
 
 test "tokenizer test" {
-    try testTokenize("+ +-- 323 * /", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div});
+    try testTokenize("+ +-- 323 * /a", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div, .tk_identifier});
 }
 
 
@@ -239,9 +271,14 @@ fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !v
     for(expected_token_tags) |expected_token_tag| {
         const token = tokenizer.next();
         try std.testing.expectEqual(expected_token_tag, token.tag);
+        if(token.tag == Token.Tag.tk_identifier){
+            const name = tokenizer.getSlice(token.loc.start);
+            std.io.getStdErr().writer().print("\n\n***{s}***\n", .{name}) catch unreachable;
+        }
     }
     const last_token = tokenizer.next();
     try std.testing.expectEqual(Token.Tag.tk_eof, last_token.tag);
     try std.testing.expectEqual(source.len, last_token.loc.start);
     try std.testing.expectEqual(source.len, last_token.loc.end);
 }
+
