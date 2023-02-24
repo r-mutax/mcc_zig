@@ -29,11 +29,21 @@ pub const Token = struct {
         tk_r_angle_bracket_equal,   // >=
         tk_identifier,
         tk_semicoron,
+        tk_return,
     };
     pub const Loc = struct {
         start: usize,
         end: usize,
     };
+
+    pub const keywords = std.ComptimeStringMap(Token.Tag, .{
+        .{ "return", .tk_return },
+    });
+
+    fn getKeywords(keyword: [] const u8) ?Token.Tag {
+        return keywords.get(keyword);
+    }
+
     tag: Tag,
     loc: Loc,
 };
@@ -138,6 +148,9 @@ pub const Tokenizer = struct {
                     switch(c) {
                         'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
                         else => {
+                            if(Token.getKeywords(self.buffer[result.loc.start..self.index])) |tag| {
+                                result.tag = tag;
+                            }
                             break;
                         }
                     }
@@ -262,7 +275,7 @@ pub const Tokenizer = struct {
 };
 
 test "tokenizer test" {
-    try testTokenize("+ +-- 323 * /a", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div, .tk_identifier});
+    try testTokenize("+ +-- 323 * /a return", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div, .tk_identifier, .tk_return});
 }
 
 
@@ -271,10 +284,6 @@ fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !v
     for(expected_token_tags) |expected_token_tag| {
         const token = tokenizer.next();
         try std.testing.expectEqual(expected_token_tag, token.tag);
-        if(token.tag == Token.Tag.tk_identifier){
-            const name = tokenizer.getSlice(token.loc.start);
-            std.io.getStdErr().writer().print("\n\n***{s}***\n", .{name}) catch unreachable;
-        }
     }
     const last_token = tokenizer.next();
     try std.testing.expectEqual(Token.Tag.tk_eof, last_token.tag);

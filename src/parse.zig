@@ -35,6 +35,8 @@ pub const Node = struct {
             // lhs = rhs
         nd_lvar,
             // local variable
+        nd_return,
+            // return statement
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -248,7 +250,7 @@ pub const Parser = struct {
     }
 
     // program = stmt*
-    // stmt = expr ';'
+    // stmt = expr ';' | 'return' expr ';'
     // expr = assign
     // assign = equality ('=' assign)?
     // equality = relational ( '==' relational | '!=' relational)
@@ -273,11 +275,21 @@ pub const Parser = struct {
     }
 
     fn parseStmt(self: *Parser) !usize {
-        const node = self.parseExpr();
+        var node : usize = 0;
+        if(self.currentTokenTag() == Token.Tag.tk_return){
+            node = self.addNode(.{
+                .tag = .nd_return,
+                .main_token = self.nextToken(),
+                .lhs = self.parseExpr(),
+            });
+        } else {
+            node = self.parseExpr();
+        }
+
         if(self.currentTokenTag() != Token.Tag.tk_semicoron){
             return TokenError.UnexpectedToken;
         }
-        _ = self.nextToken();
+        _ = self.nextToken();   // skip semicoron
         return node;
     }
 

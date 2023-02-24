@@ -75,6 +75,14 @@ pub const Codegen = struct {
     fn gen(self: *Codegen, node: usize) !void {
 
         switch(self.parser.getNodeTag(node)){
+            Node.Tag.nd_return =>{
+                try self.gen(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  mov rsp, rbp\n");
+                _ = try stdout.writeAll("  pop rbp\n");
+                _ = try stdout.writeAll("  ret\n");
+                return;
+            },
             Node.Tag.nd_num => {
                 const val = self.parser.getNodeValue(node);
                 _ = try stdout.print("  push {}\n", .{val});
