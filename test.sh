@@ -30,5 +30,6 @@ assert 3 "return a=3;b=5;cc=6;return a;"
 assert 5 "return 5; return 4;"
 assert 4 "if(0)return 5; return 4;"
 assert 15 "if(1)return 15; return 4;"
+assert 14 "if(0)return 15; else return 14; return 4;"
 
 echo OK
