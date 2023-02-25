@@ -642,10 +642,7 @@ pub const Parser = struct {
                 const node = self.parseExpr();
                 self.nodes.items(.main_token)[node] = main_token;
 
-                if(self.currentTokenTag() != Token.Tag.tk_r_paren){
-                    return TokenError.UnexpectedToken;
-                }
-                _ = self.nextToken();
+                try self.expectToken(Token.Tag.tk_r_paren);
                 return node;
             },
             else => {
