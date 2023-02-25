@@ -36,13 +36,13 @@ pub const Codegen = struct {
     fn genProgram(self: *Codegen) !void {
         var func_idx : usize = 0;
         while(func_idx < self.parser.functions.len) : (func_idx += 1){
-            const func_name = self.parser.getFuncName(func_idx);
-            try self.genFunction(func_name, func_idx);
+            try self.genFunction(func_idx);
         }
     }
 
-    fn genFunction(self: *Codegen, name: [:0] const u8, idx : usize) !void {
-        _ = try stdout.print("{s}:\n", .{ name });
+    fn genFunction(self: *Codegen, idx : usize) !void {
+        const func_name = self.parser.getFuncName(idx);
+        _ = try stdout.print("{s}:\n", .{ func_name });
 
         // prologue
         const memory = self.parser.getFuncMemory(idx);
@@ -50,12 +50,8 @@ pub const Codegen = struct {
         _ = try stdout.writeAll("  mov rbp, rsp\n");
         _ = try stdout.print("  sub rsp, {}\n", .{ memory });
 
-        const stmts = self.parser.getFunctionStmts(idx);
-        for(stmts.items) | stmt | {
-            try self.gen_stmt(stmt);
-            _ = try stdout.writeAll("  pop rax\n");
-        }
-        
+        try self.gen_stmt(self.parser.getFuncBody(idx));
+
         _ = try stdout.writeAll("  mov rsp, rbp\n");
         _ = try stdout.writeAll("  pop rbp\n");
         _ = try stdout.writeAll("  ret\n");
@@ -80,6 +76,10 @@ pub const Codegen = struct {
     }
 
     fn gen_stmt(self: *Codegen, node: usize) !void {
+        // var token = self.parser.getNodeMainToken(node);
+        // const tk = self.parser.getTokenSlice(token);
+        // const tk2 = self.parser.getTokenSlice(token+1);
+        // _ = try stdout.print("# {s}{s}\n", .{tk, tk2});
         switch(self.parser.getNodeTag(node)){
             Node.Tag.nd_return =>{
                 try self.gen_expr(self.parser.getNodeLhs(node));
@@ -155,12 +155,10 @@ pub const Codegen = struct {
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
             Node.Tag.nd_block => {
-                const start = self.parser.getNodeLhs(node);
-                const end = self.parser.getNodeRhs(node);
+                const extra = self.parser.getNodeExtra(node);
+                const stmts = self.parser.getExtraDataBody(extra);
 
-                var i = start;
-                while(i <= end) : (i += 1) {
-                    const stmt = self.parser.getStmtNode(i);
+                for(stmts.items) |stmt| {
                     try self.gen_stmt(stmt);
                 }
             },

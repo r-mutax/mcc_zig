@@ -11,10 +11,13 @@ pub const TokenList = std.MultiArrayList(struct {
 });
 const TokenError = Tokenizer.TokenError;
 
+pub const Stmts = std.ArrayList(usize);
+
 pub const ExtraData = struct {
     init: usize = undefined,
     cond: usize = undefined,
     inc: usize = undefined,
+    body: Stmts = undefined,
 };
 pub const ExtraDataList = std.MultiArrayList(ExtraData);
 
@@ -85,11 +88,10 @@ pub const ScopeList = std.MultiArrayList(Scope);
 
 
 pub const Nodes = std.MultiArrayList(Node);
-pub const Stmts = std.ArrayList(usize);
 
 pub const Function = struct {
-    name: [:0] const u8,
-    stmts: Stmts,
+    name: [] const u8,
+    body: usize,
     memory: u32 = 0,
 };
 pub const FunctionList = std.MultiArrayList(Function);
@@ -106,7 +108,7 @@ pub const Parser = struct {
     scidx: usize,
     idents: IdentList = undefined,
     memory: u32 = 0,
-    stmts: Stmts = undefined,
+    //stmts: Stmts = undefined,
     extras: ExtraDataList = undefined,
 
     pub fn init(gpa: Allocator, source: [:0]const u8) Parser {
@@ -127,7 +129,6 @@ pub const Parser = struct {
         self.functions = FunctionList{};
         self.scopes = ScopeList{};
         self.idents = IdentList{};
-        self.stmts = Stmts.init(self.gpa);
         self.extras = ExtraDataList{};
 
         var tokenizer = Tokenizer.Tokenizer.init(self.source);   
@@ -148,7 +149,7 @@ pub const Parser = struct {
         self.scopes.items(.parent)[self.scidx] = null;
 
         // パースする
-        self.parseProgram();
+        self.parseProgram() catch unreachable;
         return;
     }
 
@@ -202,7 +203,7 @@ pub const Parser = struct {
         return ident_idx;
     }
 
-    pub fn getFuncName(self:*Parser, idx:usize) [:0] const u8 {
+    pub fn getFuncName(self:*Parser, idx:usize) [] const u8 {
         return self.functions.items(.name)[idx];
     }
 
@@ -210,8 +211,8 @@ pub const Parser = struct {
         return self.functions.items(.memory)[idx];
     }
 
-    pub fn getFunctionStmts(self:*Parser, idx:usize) Stmts {
-        return self.functions.items(.stmts)[idx];
+    pub fn getFuncBody(self: *Parser, idx: usize) usize {
+        return self.functions.items(.body)[idx];
     }
 
     pub fn getNodeTag(self:*Parser, node: usize) Node.Tag {
@@ -234,6 +235,10 @@ pub const Parser = struct {
         const ident = self.nodes.items(.ident)[node];
         const offset = self.idents.items(.offset)[ident];
         return offset;
+    }
+
+    pub fn getNodeMainToken(self: *Parser, node: usize) usize {
+        return self.nodes.items(.main_token)[node];
     }
 
     fn addNode(self:*Parser, node: Node) usize {
@@ -271,6 +276,10 @@ pub const Parser = struct {
         return self.extras.items(.inc)[idx];
     }
 
+    pub fn getExtraDataBody(self: *Parser, idx: usize) Stmts {
+        return self.extras.items(.body)[idx];
+    }
+
     pub fn getNodeExtra(self: *Parser, node: usize) usize {
         return self.nodes.items(.data)[node];
     }
@@ -294,20 +303,32 @@ pub const Parser = struct {
     }
 
     fn getCurrentTokenSlice(self: *Parser) [] const u8 {
-        const main_token = self.tkidx;
-        const start = self.tokens.items(.start)[main_token];
+        return self.getTokenSlice(self.tkidx);
+    }
+
+    pub fn getTokenSlice(self: *Parser, token: usize) [] const u8 {
+        const start = self.tokens.items(.start)[token];
         var tokenizer = Tokenizer.Tokenizer.init(self.source);
-        
-        const name = tokenizer.getSlice(start);
-        return name;
+
+        const slice = tokenizer.getSlice(start);
+        return slice;
     }
 
-    pub fn getStmtNode(self: *Parser, stmt: usize) usize {
-        return self.stmts.items[stmt];
+    pub fn getStmtNode(self: *Parser, node: usize, stmt: usize) usize {
+        const data = self.nodes.items(.data)[node];
+        const body = self.extras.items(.body)[data];
+        return body.items[stmt];
     }
 
-    // program = stmt*
-    // stmt = expr ';' | 'return' expr ';'
+    // program = function*
+    // function = ident '()' compound_stmt
+    // compound_stmt = '{' stmt* '}'
+    // stmt = expr ';' 
+    //          | 'return' expr ';'
+    //          | 'if(' expr ')' stmt ('else' stmt)?
+    //          | 'while(' expr ')' stmt
+    //          | 'for(' expr ';' expr ';' expr ')' stmt
+    //          | compound_stmt
     // expr = assign
     // assign = equality ('=' assign)?
     // equality = relational ( '==' relational | '!=' relational)
@@ -315,20 +336,33 @@ pub const Parser = struct {
     // add = mul ( '+' mul | '/' mul )
     // mul = unary ( '*' unary | '/' unary )
     // unary = ( '+' | '-' )? primary
-    // primary = ( num | '(' expr ')' )
+    // primary = ( num | '(' expr ')' | ident )
 
-    fn parseProgram(self: *Parser) void {
-        var stmts = Stmts.init(self.gpa);
-        while(self.currentTokenTag() != Token.Tag.tk_eof) {
-            const stmt = self.parseStmt() catch unreachable;
-            stmts.append(stmt) catch unreachable;
+    fn parseProgram(self: *Parser) !void {
+        while(true){
+            const func = try self.parseFunction() orelse {
+                break;
+            };
+            self.functions.append(self.gpa, func) catch unreachable;
         }
-        
-        self.functions.append(self.gpa, .{
-            .name = "main",
-            .stmts = stmts,
+    }
+
+    fn parseFunction(self: *Parser) !?Function {
+        if(self.currentTokenTag() != Token.Tag.tk_identifier){
+            return null;
+        }
+        const name = self.getCurrentTokenSlice();
+        _ = self.nextToken();
+        try self.expectToken(Token.Tag.tk_l_paren);
+        try self.expectToken(Token.Tag.tk_r_paren);
+
+        self.memory = 0;
+        const body = try self.parseBlock();
+        return Function{
+            .name = name,
+            .body = body,
             .memory = self.memory,
-        }) catch unreachable;
+        };
     }
 
     fn parseStmt(self: *Parser) !usize {
@@ -404,19 +438,19 @@ pub const Parser = struct {
 
     fn parseBlock(self: *Parser) TokenError!usize {
         const main_token = self.nextToken();
-        const start = self.stmts.items.len;
+        var data = ExtraData{};
+        data.body = Stmts.init(self.gpa);
+        
         while(self.currentTokenTag() != Token.Tag.tk_r_brace){
             const stmt = try self.parseStmt();
-            self.stmts.append(stmt) catch unreachable;
+            data.body.append(stmt) catch unreachable;
         }
         try self.expectToken(Token.Tag.tk_r_brace);
 
-        const end = self.stmts.items.len - 1;
         return self.addNode(.{
             .tag = .nd_block,
             .main_token = main_token,
-            .lhs = start,
-            .rhs = end,
+            .data = self.addExtraData(data),
         });
     }
 
