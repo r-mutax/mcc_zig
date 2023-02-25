@@ -52,7 +52,7 @@ pub const Codegen = struct {
 
         const stmts = self.parser.getFunctionStmts(idx);
         for(stmts.items) | stmt | {
-            try self.gen(stmt);
+            try self.gen_stmt(stmt);
             _ = try stdout.writeAll("  pop rax\n");
         }
         
@@ -79,11 +79,10 @@ pub const Codegen = struct {
         return result;
     }
 
-    fn gen(self: *Codegen, node: usize) !void {
-
+    fn gen_stmt(self: *Codegen, node: usize) !void {
         switch(self.parser.getNodeTag(node)){
             Node.Tag.nd_return =>{
-                try self.gen(self.parser.getNodeLhs(node));
+                try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.writeAll("  mov rsp, rbp\n");
                 _ = try stdout.writeAll("  pop rbp\n");
@@ -92,34 +91,41 @@ pub const Codegen = struct {
             },
             Node.Tag.nd_if_simple =>{
                 const no = self.getLabelNo();
-                try self.gen(self.parser.getNodeLhs(node));
+                try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.writeAll("  cmp rax, 0\n");
                 _ = try stdout.writeAll("  sete al\n");
                 _ = try stdout.print("  je .Lend{}\n", .{no});
-                try self.gen(self.parser.getNodeRhs(node));
+                try self.gen_stmt(self.parser.getNodeRhs(node));
                 _ = try stdout.print(".Lend{}:\n", .{no});
                 return;
             },
             Node.Tag.nd_if=> {
                 const no = self.getLabelNo();
                 const then_else = self.parser.getNodeRhs(node);
-                try self.gen(self.parser.getNodeLhs(node));
+                try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.writeAll("  cmp rax, 0\n");
                 _ = try stdout.writeAll("  sete al\n");
                 _ = try stdout.print("  je .Lelse{}\n", .{no});
 
                 // then block
-                try self.gen(self.parser.getNodeLhs(then_else));
+                try self.gen_stmt(self.parser.getNodeLhs(then_else));
                 _ = try stdout.print("  jmp .Lend{}\n", .{no});
 
                 // else block
                 _ = try stdout.print(".Lelse{}:\n", .{no});
-                  try self.gen(self.parser.getNodeRhs(then_else));
+                  try self.gen_stmt(self.parser.getNodeRhs(then_else));
 
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
+            else => try self.gen_expr(node),
+        }
+    }
+
+    fn gen_expr(self: *Codegen, node: usize) !void {
+
+        switch(self.parser.getNodeTag(node)){
             Node.Tag.nd_num => {
                 const val = self.parser.getNodeValue(node);
                 _ = try stdout.print("  push {}\n", .{val});
@@ -134,7 +140,7 @@ pub const Codegen = struct {
             },
             Node.Tag.nd_assign => {
                 try self.gen_lval(self.parser.getNodeLhs(node));
-                try self.gen(self.parser.getNodeRhs(node));
+                try self.gen_expr(self.parser.getNodeRhs(node));
 
                 _ = try stdout.writeAll("  pop rdi\n");
                 _ = try stdout.writeAll("  pop rax\n");
@@ -145,8 +151,8 @@ pub const Codegen = struct {
             else => {}
         }
 
-        try self.gen(self.parser.getNodeLhs(node));
-        try self.gen(self.parser.getNodeRhs(node));
+        try self.gen_expr(self.parser.getNodeLhs(node));
+        try self.gen_expr(self.parser.getNodeRhs(node));
         _ = try stdout.writeAll("  pop rdi\n") ;
         _ = try stdout.writeAll("  pop rax\n") ;
 
