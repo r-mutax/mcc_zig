@@ -30,6 +30,8 @@ pub const Token = struct {
         tk_identifier,
         tk_semicoron,
         tk_return,
+        tk_if,
+        tk_else,
     };
     pub const Loc = struct {
         start: usize,
@@ -38,6 +40,8 @@ pub const Token = struct {
 
     pub const keywords = std.ComptimeStringMap(Token.Tag, .{
         .{ "return", .tk_return },
+        .{ "if", .tk_if },
+        .{ "else", .tk_else },
     });
 
     fn getKeywords(keyword: [] const u8) ?Token.Tag {

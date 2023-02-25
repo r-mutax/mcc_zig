@@ -37,6 +37,12 @@ pub const Node = struct {
             // local variable
         nd_return,
             // return statement
+        nd_if_simple,
+            // if statement
+        nd_if,
+        nd_then_else,
+            // if statement and then block and else block
+
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -240,6 +246,14 @@ pub const Parser = struct {
         return self.tokens.items(.tag)[self.tkidx];
     }
 
+    fn expectToken(self: *Parser, tag: Token.Tag) !void {
+        if(self.currentTokenTag() != tag){
+            return TokenError.UnexpectedToken;
+        }
+        _ = self.nextToken();
+        return;
+    }
+
     fn getCurrentTokenSlice(self: *Parser) [] const u8 {
         const main_token = self.tkidx;
         const start = self.tokens.items(.start)[main_token];
@@ -275,22 +289,58 @@ pub const Parser = struct {
     }
 
     fn parseStmt(self: *Parser) !usize {
-        var node : usize = 0;
-        if(self.currentTokenTag() == Token.Tag.tk_return){
-            node = self.addNode(.{
-                .tag = .nd_return,
-                .main_token = self.nextToken(),
-                .lhs = self.parseExpr(),
+        var node : usize = switch(self.currentTokenTag()){
+            Token.Tag.tk_return => try self.parseReturnStmt(),
+            Token.Tag.tk_if => try self.parseIf(),
+            else => blk: {
+                const stmt = self.parseExpr();
+                try self.expectToken(Token.Tag.tk_semicoron);
+                break :blk stmt;
+            },
+        };
+        return node;
+    }
+
+    fn parseReturnStmt(self:*Parser) !usize {
+        const node = self.addNode(.{
+            .tag = .nd_return,
+            .main_token = self.nextToken(),
+            .lhs = self.parseExpr(),
+        });
+
+        try self.expectToken(Token.Tag.tk_semicoron);
+        return node;
+    }
+
+    fn parseIf(self: *Parser) TokenError!usize {
+
+        const main_token = self.nextToken();
+        try self.expectToken(Token.Tag.tk_l_paren);
+        const cond = self.parseExpr();
+        try self.expectToken(Token.Tag.tk_r_paren);
+
+        const then_blk = try self.parseStmt();
+        if(self.currentTokenTag() != Token.Tag.tk_else){
+            return self.addNode(.{
+                .tag = .nd_if_simple,
+                .main_token = main_token,
+                .lhs = cond,
+                .rhs = then_blk,
             });
-        } else {
-            node = self.parseExpr();
         }
 
-        if(self.currentTokenTag() != Token.Tag.tk_semicoron){
-            return TokenError.UnexpectedToken;
-        }
-        _ = self.nextToken();   // skip semicoron
-        return node;
+        try self.expectToken(Token.Tag.tk_else);
+        return self.addNode(.{
+            .tag = .nd_if,
+            .main_token = main_token,
+            .lhs = cond,
+            .rhs = self.addNode(.{
+                .tag = .nd_then_else,
+                .main_token = self.nodes.items(.main_token)[then_blk],
+                .lhs = then_blk,
+                .rhs = try self.parseStmt(),
+            })
+        });
     }
 
     fn parseExpr(self: *Parser) usize {

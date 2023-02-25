@@ -12,6 +12,7 @@ const Allocator = std.mem.Allocator;
 
 pub const Codegen = struct {
     parser: Parser = undefined,
+    label_no: u32 = 0,
 
     pub fn init(gpa: Allocator, source: [:0]const u8) Codegen {
         var result = Codegen{};
@@ -72,6 +73,12 @@ pub const Codegen = struct {
         _ = try stdout.writeAll("  push rax\n");
     }
 
+    fn getLabelNo(self: *Codegen) u32 {
+        const result = self.label_no;
+        self.label_no += 1;
+        return result;
+    }
+
     fn gen(self: *Codegen, node: usize) !void {
 
         switch(self.parser.getNodeTag(node)){
@@ -81,6 +88,17 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  mov rsp, rbp\n");
                 _ = try stdout.writeAll("  pop rbp\n");
                 _ = try stdout.writeAll("  ret\n");
+                return;
+            },
+            Node.Tag.nd_if_simple =>{
+                const no = self.getLabelNo();
+                try self.gen(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.writeAll("  sete al\n");
+                _ = try stdout.print("  je .Lend{}\n", .{no});
+                try self.gen(self.parser.getNodeRhs(node));
+                _ = try stdout.print(".Lend{}:\n", .{no});
                 return;
             },
             Node.Tag.nd_num => {
