@@ -32,5 +32,6 @@ assert 4 "if(0)return 5; return 4;"
 assert 15 "if(1)return 15; return 4;"
 assert 14 "if(0)return 15; else return 14; return 4;"
 assert 21 "a=10;if(a==1)return 5; else if(a==10) return 21; else return 4; return 6;"
+assert 3 "a = 10; while(a==0)a = a - 1; return 3;"
 
 echo OK

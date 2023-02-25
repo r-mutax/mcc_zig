@@ -42,7 +42,8 @@ pub const Node = struct {
         nd_if,
         nd_then_else,
             // if statement and then block and else block
-
+        nd_while,
+            // while statement
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -292,6 +293,7 @@ pub const Parser = struct {
         var node : usize = switch(self.currentTokenTag()){
             Token.Tag.tk_return => try self.parseReturnStmt(),
             Token.Tag.tk_if => try self.parseIf(),
+            Token.Tag.tk_while => try self.parseWhile(),
             else => blk: {
                 const stmt = self.parseExpr();
                 try self.expectToken(Token.Tag.tk_semicoron);
@@ -313,7 +315,6 @@ pub const Parser = struct {
     }
 
     fn parseIf(self: *Parser) TokenError!usize {
-
         const main_token = self.nextToken();
         try self.expectToken(Token.Tag.tk_l_paren);
         const cond = self.parseExpr();
@@ -340,6 +341,20 @@ pub const Parser = struct {
                 .lhs = then_blk,
                 .rhs = try self.parseStmt(),
             })
+        });
+    }
+
+    fn parseWhile(self: *Parser) TokenError!usize {
+        const main_token = self.nextToken();
+        try self.expectToken(Token.Tag.tk_l_paren);
+        const cond = self.parseExpr();
+        try self.expectToken(Token.Tag.tk_r_paren);
+
+        return self.addNode(.{
+            .tag = .nd_while,
+            .main_token = main_token,
+            .lhs = cond,
+            .rhs = try self.parseStmt(),
         });
     }
 

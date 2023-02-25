@@ -119,6 +119,21 @@ pub const Codegen = struct {
 
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
+            Node.Tag.nd_while => {
+                const no = self.getLabelNo();
+                _ = try stdout.print(".Lbegin{}:\n", .{no});
+                try self.gen_expr(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.writeAll("  sete al\n");
+                _ = try stdout.print("  je .Lend{}\n", .{no});
+
+                // body
+                try self.gen_stmt(self.parser.getNodeRhs(node));
+                _ = try stdout.print("  jmp .Lbegin{}\n", .{no});
+
+                _ = try stdout.print(".Lend{}:\n", .{no});
+            },
             else => try self.gen_expr(node),
         }
     }
