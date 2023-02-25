@@ -11,6 +11,13 @@ pub const TokenList = std.MultiArrayList(struct {
 });
 const TokenError = Tokenizer.TokenError;
 
+pub const ExtraData = struct {
+    init: usize = undefined,
+    cond: usize = undefined,
+    inc: usize = undefined,
+};
+pub const ExtraDataList = std.MultiArrayList(ExtraData);
+
 pub const Node = struct {
     pub const Tag = enum {
         nd_add,
@@ -44,6 +51,8 @@ pub const Node = struct {
             // if statement and then block and else block
         nd_while,
             // while statement
+        nd_for,
+            // for statement
         nd_block,
             // block statement
     };
@@ -53,6 +62,7 @@ pub const Node = struct {
     val: u32 = 0,           // value of nodes(in nd_num)
     tag: Tag,
     ident: usize = undefined,
+    data: usize = undefined,    // extra data index
 };
 
 pub const Ident = struct {
@@ -97,6 +107,7 @@ pub const Parser = struct {
     idents: IdentList = undefined,
     memory: u32 = 0,
     stmts: Stmts = undefined,
+    extras: ExtraDataList = undefined,
 
     pub fn init(gpa: Allocator, source: [:0]const u8) Parser {
         return Parser {
@@ -117,6 +128,7 @@ pub const Parser = struct {
         self.scopes = ScopeList{};
         self.idents = IdentList{};
         self.stmts = Stmts.init(self.gpa);
+        self.extras = ExtraDataList{};
 
         var tokenizer = Tokenizer.Tokenizer.init(self.source);   
         while(true) {
@@ -241,6 +253,28 @@ pub const Parser = struct {
         return idx;
     }
 
+    fn addExtraData(self: *Parser, extra: ExtraData) usize {
+        const idx = self.extras.len;
+        self.extras.append(self.gpa, extra) catch unreachable;
+        return idx;
+    }
+
+    pub fn getExtraDataInitNode(self: *Parser, idx: usize) usize {
+        return self.extras.items(.init)[idx];
+    }
+
+    pub fn getExtraDataCondNode(self: *Parser, idx: usize) usize {
+        return self.extras.items(.cond)[idx];
+    }
+
+    pub fn getExtraDataIncNode(self: *Parser, idx: usize) usize {
+        return self.extras.items(.inc)[idx];
+    }
+
+    pub fn getNodeExtra(self: *Parser, node: usize) usize {
+        return self.nodes.items(.data)[node];
+    }
+
     fn nextToken(self: *Parser) usize {
         const result = self.tkidx;
         self.tkidx += 1;
@@ -303,6 +337,7 @@ pub const Parser = struct {
             Token.Tag.tk_if => try self.parseIf(),
             Token.Tag.tk_while => try self.parseWhile(),
             Token.Tag.tk_l_brace => try self.parseBlock(),
+            Token.Tag.tk_for => try self.parseFor(),
             else => blk: {
                 const stmt = self.parseExpr();
                 try self.expectToken(Token.Tag.tk_semicoron);
@@ -382,6 +417,34 @@ pub const Parser = struct {
             .main_token = main_token,
             .lhs = start,
             .rhs = end,
+        });
+    }
+
+    fn parseFor(self: *Parser) TokenError!usize {
+        const main_token = self.nextToken();
+        try self.expectToken(.tk_l_paren);
+        
+        // initialize
+        const init_stmt = self.parseExpr();
+        try self.expectToken(.tk_semicoron);
+
+        // cond
+        const cond = self.parseExpr();
+        try self.expectToken(.tk_semicoron);
+
+        // increment
+        const inc = self.parseExpr();
+        try self.expectToken(.tk_r_paren);
+
+        return self.addNode(.{
+            .tag = .nd_for,
+            .main_token = main_token,
+            .lhs = try self.parseStmt(),
+            .data = self.addExtraData(.{
+                .init = init_stmt,
+                .cond = cond,
+                .inc = inc,
+            }),
         });
     }
 

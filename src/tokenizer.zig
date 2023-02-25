@@ -35,6 +35,7 @@ pub const Token = struct {
         tk_if,
         tk_else,
         tk_while,
+        tk_for,
     };
     pub const Loc = struct {
         start: usize,
@@ -46,6 +47,7 @@ pub const Token = struct {
         .{ "if", .tk_if },
         .{ "else", .tk_else },
         .{ "while", .tk_while },
+        .{ "for", .tk_for },
     });
 
     fn getKeywords(keyword: [] const u8) ?Token.Tag {

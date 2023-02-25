@@ -134,6 +134,26 @@ pub const Codegen = struct {
 
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
+            Node.Tag.nd_for => {
+                const no = self.getLabelNo();
+                const extra = self.parser.getNodeExtra(node);
+
+                // initialize
+                try self.gen_stmt(self.parser.getExtraDataInitNode(extra));
+
+                // condition check
+                _ = try stdout.print(".Lstart{}:\n", .{no});
+                try self.gen_stmt(self.parser.getExtraDataCondNode(extra));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.writeAll("  sete al\n");
+                _ = try stdout.print("  je .Lend{}\n", .{no});
+                
+                try self.gen_stmt(self.parser.getNodeLhs(node));
+                try self.gen_stmt(self.parser.getExtraDataIncNode(extra));
+                _ = try stdout.print("  jmp .Lstart{}\n", .{no});
+                _ = try stdout.print(".Lend{}:\n", .{no});
+            },
             Node.Tag.nd_block => {
                 const start = self.parser.getNodeLhs(node);
                 const end = self.parser.getNodeRhs(node);
