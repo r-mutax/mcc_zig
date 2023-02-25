@@ -58,6 +58,8 @@ pub const Node = struct {
             // for statement
         nd_block,
             // block statement
+        nd_call_function,
+            // function call
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -71,10 +73,11 @@ pub const Node = struct {
 pub const Ident = struct {
     const Tag = enum {
         local_variable,
+        function,
     };
-    size: u32,
+    size: u32 = undefined,
     tag: Tag,
-    offset: u32,
+    offset: u32 = undefined,
 };
 pub const IdentList = std.MultiArrayList(Ident);
 
@@ -352,6 +355,9 @@ pub const Parser = struct {
             return null;
         }
         const name = self.getCurrentTokenSlice();
+        _ = self.appendIdent(name, .{
+            .tag = .function,
+        });
         _ = self.nextToken();
         try self.expectToken(Token.Tag.tk_l_paren);
         try self.expectToken(Token.Tag.tk_r_paren);
@@ -636,6 +642,17 @@ pub const Parser = struct {
         }
     }
 
+    fn parseCallFunction(self: *Parser) !usize {
+        const main_token = self.nextToken();
+        try self.expectToken(Token.Tag.tk_l_paren);
+        try self.expectToken(Token.Tag.tk_r_paren);
+
+        return self.addNode(.{
+            .tag = .nd_call_function,
+            .main_token = main_token,
+        });
+    }
+
     fn parsePrimary(self: *Parser) !usize {
         switch(self.currentTokenTag()){
             .tk_identifier => {
@@ -643,11 +660,18 @@ pub const Parser = struct {
                 const ident = self.findIdent(name);
 
                 if(ident) |i| {
-                    return self.addNode(Node{
-                        .tag = .nd_lvar,
-                        .main_token = self.nextToken(),
-                        .ident = i,
-                    });
+                    switch(self.idents.items(.tag)[i]){
+                        .local_variable => {
+                            return self.addNode(Node{
+                                .tag = .nd_lvar,
+                                .main_token = self.nextToken(),
+                                .ident = i,
+                            });
+                        },
+                        .function => {
+                            return try self.parseCallFunction();
+                        },
+                    }
                 } else {
                     const add_ident = self.appendIdent(name, Ident { .tag = .local_variable, .size = 8, .offset = self.memory });
 

@@ -191,6 +191,14 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  push rdi\n");
                 return;
             },
+            Node.Tag.nd_call_function => {
+                const token = self.parser.getNodeMainToken(node);
+                const func_name = self.parser.getTokenSlice(token);
+
+                _ = try stdout.print("  call {s}\n", .{func_name});
+                _ = try stdout.writeAll("  push rax\n");
+                return;
+            },
             else => {}
         }
 
