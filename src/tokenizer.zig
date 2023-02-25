@@ -27,6 +27,8 @@ pub const Token = struct {
         tk_l_angle_bracket_equal,   // <=
         tk_r_angle_bracket,         // >
         tk_r_angle_bracket_equal,   // >=
+        tk_l_brace,                // {
+        tk_r_brace,                 // }
         tk_identifier,
         tk_semicoron,
         tk_return,
@@ -74,6 +76,8 @@ pub const Tokenizer = struct {
         int,
         l_paren,
         r_paren,
+        l_brace,
+        r_brace,
         equal,
         exclamation,
         l_angle_bracket,
@@ -119,6 +123,12 @@ pub const Tokenizer = struct {
                     },
                     ')' => {
                         state = .r_paren;
+                    },
+                    '{' => {
+                        state = .l_brace;
+                    },
+                    '}' => {
+                        state = .r_brace;
                     },
                     '=' => {
                         state = .equal;
@@ -203,6 +213,14 @@ pub const Tokenizer = struct {
                 },
                 .r_paren => {
                     result.tag = .tk_r_paren;
+                    break;
+                },
+                .l_brace => {
+                    result.tag = .tk_l_brace;
+                    break;
+                },
+                .r_brace => {
+                    result.tag = .tk_r_brace;
                     break;
                 },
                 .equal => {

@@ -134,6 +134,16 @@ pub const Codegen = struct {
 
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
+            Node.Tag.nd_block => {
+                const start = self.parser.getNodeLhs(node);
+                const end = self.parser.getNodeRhs(node);
+
+                var i = start;
+                while(i <= end) : (i += 1) {
+                    const stmt = self.parser.getStmtNode(i);
+                    try self.gen_stmt(stmt);
+                }
+            },
             else => try self.gen_expr(node),
         }
     }

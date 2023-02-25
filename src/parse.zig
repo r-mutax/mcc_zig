@@ -44,6 +44,8 @@ pub const Node = struct {
             // if statement and then block and else block
         nd_while,
             // while statement
+        nd_block,
+            // block statement
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -94,6 +96,7 @@ pub const Parser = struct {
     scidx: usize,
     idents: IdentList = undefined,
     memory: u32 = 0,
+    stmts: Stmts = undefined,
 
     pub fn init(gpa: Allocator, source: [:0]const u8) Parser {
         return Parser {
@@ -113,6 +116,7 @@ pub const Parser = struct {
         self.functions = FunctionList{};
         self.scopes = ScopeList{};
         self.idents = IdentList{};
+        self.stmts = Stmts.init(self.gpa);
 
         var tokenizer = Tokenizer.Tokenizer.init(self.source);   
         while(true) {
@@ -264,6 +268,10 @@ pub const Parser = struct {
         return name;
     }
 
+    pub fn getStmtNode(self: *Parser, stmt: usize) usize {
+        return self.stmts.items[stmt];
+    }
+
     // program = stmt*
     // stmt = expr ';' | 'return' expr ';'
     // expr = assign
@@ -294,6 +302,7 @@ pub const Parser = struct {
             Token.Tag.tk_return => try self.parseReturnStmt(),
             Token.Tag.tk_if => try self.parseIf(),
             Token.Tag.tk_while => try self.parseWhile(),
+            Token.Tag.tk_l_brace => try self.parseBlock(),
             else => blk: {
                 const stmt = self.parseExpr();
                 try self.expectToken(Token.Tag.tk_semicoron);
@@ -355,6 +364,24 @@ pub const Parser = struct {
             .main_token = main_token,
             .lhs = cond,
             .rhs = try self.parseStmt(),
+        });
+    }
+
+    fn parseBlock(self: *Parser) TokenError!usize {
+        const main_token = self.nextToken();
+        const start = self.stmts.items.len;
+        while(self.currentTokenTag() != Token.Tag.tk_r_brace){
+            const stmt = try self.parseStmt();
+            self.stmts.append(stmt) catch unreachable;
+        }
+        try self.expectToken(Token.Tag.tk_r_brace);
+
+        const end = self.stmts.items.len - 1;
+        return self.addNode(.{
+            .tag = .nd_block,
+            .main_token = main_token,
+            .lhs = start,
+            .rhs = end,
         });
     }
 
