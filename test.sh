@@ -46,4 +46,10 @@ assert 0 "main(){ return 0 && 44;}"
 assert 0 "main(){ return 1 && 0;}"
 assert 0 "main(){ return 0 && 0;}"
 
+# logic or
+assert 1 "main(){ return 1 || 1;}"
+assert 1 "main(){ return 1 || 0;}"
+assert 1 "main(){ return 1 || 0;}"
+assert 0 "main(){ return 0 || 0;}"
+
 echo OK

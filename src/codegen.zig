@@ -244,7 +244,29 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  push rax\n");
                 return;
             },
+            Node.Tag.nd_logic_or => {
+                const no = self.getLabelNo();
 
+                // eval lhs
+                try self.gen_expr(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.print("  jne .Ltrue{}\n", .{no});
+                // eval rhs
+                try self.gen_expr(self.parser.getNodeRhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.print("  jne .Ltrue{}\n", .{no});
+
+                _ = try stdout.writeAll("  mov rax, 0\n");
+                _ = try stdout.print("  jmp .Lend{}\n", .{no});
+                _ = try stdout.print(".Ltrue{}:\n", .{no});
+                _ = try stdout.writeAll("  mov rax, 1\n");
+                _ = try stdout.print(".Lend{}:\n", .{no});
+
+                _ = try stdout.writeAll("  push rax\n");
+                return;
+            },
             else => {}
         }
 

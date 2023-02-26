@@ -69,7 +69,9 @@ pub const Node = struct {
         nd_bit_or,
             // bit-or
         nd_logic_and,
-            // locig and
+            // logic and
+        nd_logic_or,
+            // logic or
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -343,7 +345,8 @@ pub const Parser = struct {
     //          | 'for(' expr ';' expr ';' expr ')' stmt
     //          | compound_stmt
     // expr = assign
-    // assign = logicAnd ('=' assign)?
+    // assign = logicOr ('=' assign)?
+    // logicOr = locigAnd ('||' logicAnd)?
     // logicAnd = bitOr ('&&' bitOr)*
     // bitOr = bitXor ('|' bitXor)*
     // bitXor = bitAnd ('^' bitand)*
@@ -507,7 +510,7 @@ pub const Parser = struct {
     }
 
     fn parseAssign(self: *Parser) usize {
-        var lhs = self.parseLogicAnd();
+        var lhs = self.parseLogicOr();
         if(self.currentTokenTag() == Token.Tag.tk_assign){
             lhs = self.addNode(.{
                 .tag = .nd_assign,
@@ -517,6 +520,23 @@ pub const Parser = struct {
             });
         }
         return lhs;
+    }
+
+    fn parseLogicOr(self: *Parser) usize {
+        var lhs = self.parseLogicAnd();
+
+        while(true){
+            if(self.currentTokenTag() == Token.Tag.tk_pipe_pipe){
+                lhs = self.addNode(.{
+                    .tag = .nd_logic_or,
+                    .main_token = self.nextToken(),
+                    .lhs = lhs,
+                    .rhs = self.parseLogicAnd(),
+                });
+            } else {
+                return lhs;
+            }
+        }
     }
 
     fn parseLogicAnd(self: *Parser) usize {
