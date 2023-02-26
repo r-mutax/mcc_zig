@@ -68,6 +68,8 @@ pub const Node = struct {
             // bit-xor
         nd_bit_or,
             // bit-or
+        nd_logic_and,
+            // locig and
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -342,6 +344,7 @@ pub const Parser = struct {
     //          | compound_stmt
     // expr = assign
     // assign = bitOr ('=' assign)?
+    // logicAnd = bitOr ('&&' bitOr)*
     // bitOr = bitXor ('|' bitXor)*
     // bitXor = bitAnd ('^' bitand)*
     // bitAnd = equality ('&' equality)*
@@ -504,7 +507,7 @@ pub const Parser = struct {
     }
 
     fn parseAssign(self: *Parser) usize {
-        var lhs = self.parseBitOr();
+        var lhs = self.parseLogicAnd();
         if(self.currentTokenTag() == Token.Tag.tk_assign){
             lhs = self.addNode(.{
                 .tag = .nd_assign,
@@ -514,6 +517,23 @@ pub const Parser = struct {
             });
         }
         return lhs;
+    }
+
+    fn parseLogicAnd(self: *Parser) usize {
+        var lhs = self.parseBitOr();
+
+        while(true){
+            if(self.currentTokenTag() == Token.Tag.tk_and_and){
+                lhs = self.addNode(.{
+                    .tag = .nd_logic_and,
+                    .main_token = self.nextToken(),
+                    .lhs = lhs,
+                    .rhs = self.parseBitOr(),
+                });
+            } else {
+                return lhs;
+            }
+        }
     }
 
     fn parseBitOr(self: *Parser) usize {

@@ -39,4 +39,11 @@ assert 4 "foo(){ return 5;} main(){ return 4;}"
 assert 5 "foo(){ return 5;} main(){ return foo();}"
 assert 4 "main(){return 12 & 6;}"
 assert 31 "main(){return 15 | 56 ^ 100 & 44;}"
+
+# logic and
+assert 1 "main(){ return 1 && 44;}"
+assert 0 "main(){ return 0 && 44;}"
+assert 0 "main(){ return 1 && 0;}"
+assert 0 "main(){ return 0 && 0;}"
+
 echo OK
