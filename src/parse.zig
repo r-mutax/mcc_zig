@@ -343,7 +343,7 @@ pub const Parser = struct {
     //          | 'for(' expr ';' expr ';' expr ')' stmt
     //          | compound_stmt
     // expr = assign
-    // assign = bitOr ('=' assign)?
+    // assign = logicAnd ('=' assign)?
     // logicAnd = bitOr ('&&' bitOr)*
     // bitOr = bitXor ('|' bitXor)*
     // bitXor = bitAnd ('^' bitand)*
