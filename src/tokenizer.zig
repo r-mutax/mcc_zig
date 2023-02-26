@@ -37,6 +37,8 @@ pub const Token = struct {
         tk_while,
         tk_for,
         tk_canma,
+        tk_and,                     // &
+        tk_and_and,                 // &&
     };
     pub const Loc = struct {
         start: usize,
@@ -88,6 +90,7 @@ pub const Tokenizer = struct {
         identifier,
         semicoron,
         canma,
+        ampersand,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -151,6 +154,9 @@ pub const Tokenizer = struct {
                     },
                     ',' => {
                         state = .canma;
+                    },
+                    '&' => {
+                        state = .ampersand;
                     },
                     '0'...'9' => {
                         state = .int;
@@ -285,6 +291,19 @@ pub const Tokenizer = struct {
                 .semicoron => {
                     result.tag = .tk_semicoron;
                     break;
+                },
+                .ampersand => {
+                    switch(c){
+                        '&' => {
+                            result.tag = .tk_and_and;
+                            self.index += 1;
+                            break;
+                        },
+                        else => {
+                            result.tag = .tk_and;
+                            break;
+                        }
+                    }
                 }
             }
         }

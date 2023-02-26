@@ -261,6 +261,9 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  setle al\n");
                 _ = try stdout.writeAll("  movzb rax, al\n");
             },
+            Node.Tag.nd_bit_and => {
+                _ = try stdout.writeAll("  and rax, rdi\n");
+            },
             else => {
 
             }

@@ -37,5 +37,6 @@ assert 5 "main(){ if(1){a = 10;a = a - 5; return a;} return 1; }"
 assert 12 "main(){ a = 0;for(i = 0;i < 3; i = i + 1){a = a + 4;5;} return a; }"
 assert 4 "foo(){ return 5;} main(){ return 4;}"
 assert 5 "foo(){ return 5;} main(){ return foo();}"
+assert 4 "main(){return 12 & 6;}"
 
 echo OK

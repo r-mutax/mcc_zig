@@ -61,6 +61,9 @@ pub const Node = struct {
         nd_call_function_noargs,
             // function call
         nd_call_function_have_args,
+            // function call with argument
+        nd_bit_and,
+            // bitand
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -334,7 +337,8 @@ pub const Parser = struct {
     //          | 'for(' expr ';' expr ';' expr ')' stmt
     //          | compound_stmt
     // expr = assign
-    // assign = equality ('=' assign)?
+    // assign = bitAnd ('=' bitAnd)?
+    // bitAnd = equality ('&' equality)*
     // equality = relational ( '==' relational | '!=' relational)
     // relational = add ( '<' add | '<=' add | '>' add | '>=' add)
     // add = mul ( '+' mul | '/' mul )
@@ -494,7 +498,7 @@ pub const Parser = struct {
     }
 
     fn parseAssign(self: *Parser) usize {
-        var lhs = self.parseEquality();
+        var lhs = self.parseBitAnd();
         if(self.currentTokenTag() == Token.Tag.tk_assign){
             lhs = self.addNode(.{
                 .tag = .nd_assign,
@@ -504,6 +508,24 @@ pub const Parser = struct {
             });
         }
         return lhs;
+    }
+
+    fn parseBitAnd(self: *Parser) usize {
+        var lhs = self.parseEquality();
+
+        while(true){
+            switch(self.currentTokenTag()){
+                .tk_and => {
+                    lhs = self.addNode(.{
+                        .tag = .nd_bit_and,
+                        .main_token = self.nextToken(),
+                        .lhs = lhs,
+                        .rhs = self.parseEquality(),
+                    });
+                },
+                else => return lhs,
+            }
+        }
     }
 
     fn parseEquality(self: *Parser) usize {
