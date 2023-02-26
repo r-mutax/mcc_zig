@@ -58,8 +58,9 @@ pub const Node = struct {
             // for statement
         nd_block,
             // block statement
-        nd_call_function,
+        nd_call_function_noargs,
             // function call
+        nd_call_function_have_args,
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -645,12 +646,35 @@ pub const Parser = struct {
     fn parseCallFunction(self: *Parser) !usize {
         const main_token = self.nextToken();
         try self.expectToken(Token.Tag.tk_l_paren);
-        try self.expectToken(Token.Tag.tk_r_paren);
 
-        return self.addNode(.{
-            .tag = .nd_call_function,
-            .main_token = main_token,
-        });
+        if(self.currentTokenTag() != Token.Tag.tk_r_paren){
+            var stmts = Stmts.init(self.gpa);
+            while(true){
+                const node = self.parseExpr();
+                try stmts.append(node);
+                if(self.currentTokenTag() != Token.Tag.tk_canma){
+                    break;
+                }
+                _ = self.nextToken();
+            }
+            try self.expectToken(Token.Tag.tk_r_paren);
+
+            const data = ExtraData{
+                .body = stmts,
+            };
+
+            return self.addNode(.{
+                .tag = .nd_call_function_have_args,
+                .main_token = main_token,
+                .data = self.addExtraData(data),
+            });
+        } else {
+            try self.expectToken(Token.Tag.tk_r_paren);
+            return self.addNode(.{
+                .tag = .nd_call_function_noargs,
+                .main_token = main_token,
+            });
+        }
     }
 
     fn parsePrimary(self: *Parser) !usize {

@@ -14,6 +14,7 @@ pub const Codegen = struct {
     parser: Parser = undefined,
     label_no: u32 = 0,
 
+    const argreg64 = [_] [:0] const u8 {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
     pub fn init(gpa: Allocator, source: [:0]const u8) Codegen {
         var result = Codegen{};
         result.parser = Parser.init(gpa, source);
@@ -191,9 +192,28 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  push rdi\n");
                 return;
             },
-            Node.Tag.nd_call_function => {
+            Node.Tag.nd_call_function_noargs => {
                 const token = self.parser.getNodeMainToken(node);
                 const func_name = self.parser.getTokenSlice(token);
+
+                _ = try stdout.print("  call {s}\n", .{func_name});
+                _ = try stdout.writeAll("  push rax\n");
+                return;
+            },
+            Node.Tag.nd_call_function_have_args => {
+                const token = self.parser.getNodeMainToken(node);
+                const func_name = self.parser.getTokenSlice(token);
+
+                const extra = self.parser.getNodeExtra(node);
+                const args = self.parser.getExtraDataBody(extra);
+                for(args.items) |arg| {
+                    try self.gen_expr(arg);
+                    _ = try stdout.writeAll("  push rax\n");
+                }
+
+                for(args.items) |_| {
+                    _ = try stdout.print("  pop {s}\n", .{argreg64[args.items.len - 1]});
+                }
 
                 _ = try stdout.print("  call {s}\n", .{func_name});
                 _ = try stdout.writeAll("  push rax\n");
