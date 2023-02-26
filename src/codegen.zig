@@ -264,6 +264,12 @@ pub const Codegen = struct {
             Node.Tag.nd_bit_and => {
                 _ = try stdout.writeAll("  and rax, rdi\n");
             },
+            Node.Tag.nd_bit_xor => {
+                _ = try stdout.writeAll("  xor rax, rdi\n");
+            },
+            Node.Tag.nd_bit_or => {
+                _ = try stdout.writeAll("  or rax, rdi\n");
+            },
             else => {
 
             }

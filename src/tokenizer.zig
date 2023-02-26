@@ -39,6 +39,9 @@ pub const Token = struct {
         tk_canma,
         tk_and,                     // &
         tk_and_and,                 // &&
+        tk_pipe,
+        tk_pipe_pipe,
+        tk_hat,
     };
     pub const Loc = struct {
         start: usize,
@@ -91,6 +94,8 @@ pub const Tokenizer = struct {
         semicoron,
         canma,
         ampersand,
+        pipe,
+        hat,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -157,6 +162,12 @@ pub const Tokenizer = struct {
                     },
                     '&' => {
                         state = .ampersand;
+                    },
+                    '|' => {
+                        state = .pipe;
+                    },
+                    '^' => {
+                        state = .hat;
                     },
                     '0'...'9' => {
                         state = .int;
@@ -304,7 +315,24 @@ pub const Tokenizer = struct {
                             break;
                         }
                     }
-                }
+                },
+                .pipe => {
+                    switch(c){
+                        '|' => {
+                            result.tag = .tk_pipe_pipe;
+                            self.index += 1;
+                            break;
+                        },
+                        else => {
+                            result.tag = .tk_pipe;
+                            break;
+                        }
+                    }
+                },
+                .hat => {
+                    result.tag = .tk_hat;
+                    break;
+                },
             }
         }
 

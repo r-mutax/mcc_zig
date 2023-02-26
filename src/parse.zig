@@ -64,6 +64,10 @@ pub const Node = struct {
             // function call with argument
         nd_bit_and,
             // bitand
+        nd_bit_xor,
+            // bit-xor
+        nd_bit_or,
+            // bit-or
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -337,7 +341,9 @@ pub const Parser = struct {
     //          | 'for(' expr ';' expr ';' expr ')' stmt
     //          | compound_stmt
     // expr = assign
-    // assign = bitAnd ('=' bitAnd)?
+    // assign = bitOr ('=' assign)?
+    // bitOr = bitXor ('|' bitXor)*
+    // bitXor = bitAnd ('^' bitand)*
     // bitAnd = equality ('&' equality)*
     // equality = relational ( '==' relational | '!=' relational)
     // relational = add ( '<' add | '<=' add | '>' add | '>=' add)
@@ -498,7 +504,7 @@ pub const Parser = struct {
     }
 
     fn parseAssign(self: *Parser) usize {
-        var lhs = self.parseBitAnd();
+        var lhs = self.parseBitOr();
         if(self.currentTokenTag() == Token.Tag.tk_assign){
             lhs = self.addNode(.{
                 .tag = .nd_assign,
@@ -508,6 +514,40 @@ pub const Parser = struct {
             });
         }
         return lhs;
+    }
+
+    fn parseBitOr(self: *Parser) usize {
+        var lhs = self.parseBitXor();
+
+        while(true){
+            if(self.currentTokenTag() == Token.Tag.tk_pipe){
+                lhs = self.addNode(.{
+                    .tag = .nd_bit_or,
+                    .main_token = self.nextToken(),
+                    .lhs = lhs,
+                    .rhs = self.parseBitXor(),
+                });
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    fn parseBitXor(self: *Parser) usize {
+        var lhs = self.parseBitAnd();
+
+        while(true){
+            if(self.currentTokenTag() == Token.Tag.tk_hat){
+                lhs = self.addNode(.{
+                    .tag = .nd_bit_xor,
+                    .main_token = self.nextToken(),
+                    .lhs = lhs,
+                    .rhs = self.parseBitAnd(),
+                });
+            } else {
+                return lhs;
+            }
+        }
     }
 
     fn parseBitAnd(self: *Parser) usize {
