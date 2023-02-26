@@ -267,6 +267,26 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  push rax\n");
                 return;
             },
+            .nd_cond_expr => {
+                const no = self.getLabelNo();
+                const extra = self.parser.getNodeExtra(node);
+                
+                try self.gen_expr(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  cmp rax, 0\n");
+                _ = try stdout.print("  je .Lfalse{}\n", .{no});
+
+                try self.gen_expr(self.parser.getNodeLhs(extra));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.print("  jmp .Lend{}\n", .{no});
+                _ = try stdout.print(".Lfalse{}:\n", .{no});
+                try self.gen_expr(self.parser.getNodeRhs(extra));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.print(".Lend{}:\n", .{no});
+                
+                _ = try stdout.writeAll("  push rax\n");
+                return;                
+            },
             else => {}
         }
 

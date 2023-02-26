@@ -72,6 +72,8 @@ pub const Node = struct {
             // logic and
         nd_logic_or,
             // logic or
+        nd_cond_expr,
+            // condition expression
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -510,7 +512,7 @@ pub const Parser = struct {
     }
 
     fn parseAssign(self: *Parser) usize {
-        var lhs = self.parseLogicOr();
+        var lhs = self.parseCondExpr() catch unreachable;
         if(self.currentTokenTag() == Token.Tag.tk_assign){
             lhs = self.addNode(.{
                 .tag = .nd_assign,
@@ -519,6 +521,31 @@ pub const Parser = struct {
                 .rhs = self.parseAssign(),
             });
         }
+        return lhs;
+    }
+
+    fn parseCondExpr(self: *Parser) !usize {
+        var lhs = self.parseLogicOr();
+
+        if(self.currentTokenTag() == Token.Tag.tk_question){
+            const main_token = self.nextToken();
+            const then_block = self.parseExpr();
+            try self.expectToken(.tk_coron);
+            const else_block = self.parseCondExpr() catch unreachable;
+
+            lhs = self.addNode(.{
+                .tag = .nd_cond_expr,
+                .main_token = main_token,
+                .lhs = lhs,
+                .rhs = self.addNode(.{
+                    .tag = .nd_then_else,
+                    .main_token = 0,
+                    .lhs = then_block,
+                    .rhs = else_block,
+                }),
+            });
+        }
+
         return lhs;
     }
 

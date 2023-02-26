@@ -52,4 +52,8 @@ assert 1 "main(){ return 1 || 0;}"
 assert 1 "main(){ return 1 || 0;}"
 assert 0 "main(){ return 0 || 0;}"
 
+# cond expr
+assert 2 "main(){ return 1 ? 2 : 3;}"
+assert 3 "main(){ return 0 ? 2 : 3;}"
+
 echo OK

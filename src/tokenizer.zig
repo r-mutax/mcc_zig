@@ -39,9 +39,11 @@ pub const Token = struct {
         tk_canma,
         tk_and,                     // &
         tk_and_and,                 // &&
-        tk_pipe,
-        tk_pipe_pipe,
-        tk_hat,
+        tk_pipe,                    // |
+        tk_pipe_pipe,               // ||
+        tk_hat,                     // ~
+        tk_question,                // ?
+        tk_coron,                   // :
     };
     pub const Loc = struct {
         start: usize,
@@ -96,6 +98,8 @@ pub const Tokenizer = struct {
         ampersand,
         pipe,
         hat,
+        question,
+        coron,
     };
 
     pub fn next(self: *Tokenizer) Token {
@@ -168,6 +172,12 @@ pub const Tokenizer = struct {
                     },
                     '^' => {
                         state = .hat;
+                    },
+                    ':' => {
+                        state = .coron;
+                    },
+                    '?' => {
+                        state = .question;
                     },
                     '0'...'9' => {
                         state = .int;
@@ -331,6 +341,14 @@ pub const Tokenizer = struct {
                 },
                 .hat => {
                     result.tag = .tk_hat;
+                    break;
+                },
+                .question => {
+                    result.tag = .tk_question;
+                    break;
+                },
+                .coron => {
+                    result.tag = .tk_coron;
                     break;
                 },
             }
