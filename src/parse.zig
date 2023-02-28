@@ -88,6 +88,7 @@ pub const Ident = struct {
     const Tag = enum {
         local_variable,
         function,
+        paramater,
     };
     size: u32 = undefined,
     tag: Tag,
@@ -110,6 +111,7 @@ pub const Function = struct {
     name: [] const u8,
     body: usize,
     memory: u32 = 0,
+    params: std.ArrayList(usize) = undefined,
 };
 pub const FunctionList = std.MultiArrayList(Function);
 
@@ -232,6 +234,14 @@ pub const Parser = struct {
         return self.functions.items(.body)[idx];
     }
 
+    pub fn getFundParams(self: *Parser, idx: usize) std.ArrayList(usize) {
+        return self.functions.items(.params)[idx];
+    }
+
+    pub fn getVariableOffset(self: *Parser, idx: usize) usize{
+        return self.idents.items(.offset)[idx];
+    }
+
     pub fn getNodeTag(self:*Parser, node: usize) Node.Tag {
         return self.nodes.items(.tag)[node];
     }
@@ -319,6 +329,15 @@ pub const Parser = struct {
         return;
     }
 
+    fn expectIdentToken(self: *Parser) ![]const u8 {
+        if(self.currentTokenTag() != Token.Tag.tk_identifier){
+            try self.expectToken(Token.Tag.tk_identifier);
+        }
+        const ident = self.getCurrentTokenSlice();
+        _ = self.nextToken();
+        return ident;
+    }
+ 
     fn getCurrentTokenSlice(self: *Parser) [] const u8 {
         return self.getTokenSlice(self.tkidx);
     }
@@ -378,16 +397,39 @@ pub const Parser = struct {
             .tag = .function,
         });
         _ = self.nextToken();
-        try self.expectToken(Token.Tag.tk_l_paren);
-        try self.expectToken(Token.Tag.tk_r_paren);
 
         self.memory = 0;
-        const body = try self.parseBlock();
-        return Function{
+        var result = Function{
             .name = name,
-            .body = body,
             .memory = self.memory,
+            .params = std.ArrayList(usize).init(self.gpa),
+            .body = undefined,
         };
+
+        try self.expectToken(Token.Tag.tk_l_paren);
+        if(self.currentTokenTag() != Token.Tag.tk_r_paren){
+            while(true){
+                const param = try self.expectIdentToken();
+                // TODO :: add double definition error
+                const param_idx = self.appendIdent(param, .{
+                    .tag = .paramater,
+                    .offset = self.memory + 8,
+                    .size = 8,
+                });
+                try result.params.append(param_idx);
+
+                if(self.currentTokenTag() != Token.Tag.tk_canma){
+                    break;
+                }
+                _ = self.nextToken();
+            }
+        }
+        try self.expectToken(Token.Tag.tk_r_paren);
+
+        const body = try self.parseBlock();
+        result.body = body;
+        result.memory = self.memory;
+        return result;
     }
 
     fn parseStmt(self: *Parser) !usize {
@@ -814,7 +856,7 @@ pub const Parser = struct {
 
                 if(ident) |i| {
                     switch(self.idents.items(.tag)[i]){
-                        .local_variable => {
+                        .local_variable, .paramater => {
                             return self.addNode(Node{
                                 .tag = .nd_lvar,
                                 .main_token = self.nextToken(),
@@ -826,7 +868,7 @@ pub const Parser = struct {
                         },
                     }
                 } else {
-                    const add_ident = self.appendIdent(name, Ident { .tag = .local_variable, .size = 8, .offset = self.memory });
+                    const add_ident = self.appendIdent(name, Ident { .tag = .local_variable, .size = 8, .offset = self.memory + 8 });
 
                     return self.addNode(Node{
                         .tag = .nd_lvar,

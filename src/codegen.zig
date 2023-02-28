@@ -49,7 +49,16 @@ pub const Codegen = struct {
         const memory = self.parser.getFuncMemory(idx);
         _ = try stdout.writeAll("  push rbp\n");
         _ = try stdout.writeAll("  mov rbp, rsp\n");
-        _ = try stdout.print("  sub rsp, {}\n", .{ memory });
+        
+        // alloc local variable area.
+        _ = try stdout.print("  sub rsp, {}\n", .{ ((memory + 15) / 16) * 16 });
+
+        // move arguments register to stack.
+        var params = self.parser.getFundParams(idx);
+        for(params.items) |p, i| {
+            const offset = self.parser.getVariableOffset(p);
+            _ = try stdout.print("  mov [rbp - {}], {s}\n", .{offset, argreg64[i]});
+        }
 
         try self.gen_stmt(self.parser.getFuncBody(idx));
 
@@ -208,11 +217,11 @@ pub const Codegen = struct {
                 const args = self.parser.getExtraDataBody(extra);
                 for(args.items) |arg| {
                     try self.gen_expr(arg);
-                    _ = try stdout.writeAll("  push rax\n");
+                    //_ = try stdout.writeAll("  pop rax\n");
                 }
 
-                for(args.items) |_| {
-                    _ = try stdout.print("  pop {s}\n", .{argreg64[args.items.len - 1]});
+                for(args.items) |_, idx| {
+                    _ = try stdout.print("  pop {s}\n", .{argreg64[args.items.len - 1 - idx]});
                 }
 
                 _ = try stdout.print("  call {s}\n", .{func_name});

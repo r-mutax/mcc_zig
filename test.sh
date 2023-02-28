@@ -56,4 +56,6 @@ assert 0 "main(){ return 0 || 0;}"
 assert 2 "main(){ return 1 ? 2 : 3;}"
 assert 3 "main(){ return 0 ? 2 : 3;}"
 
+assert 5 "add(a,b){return a + b;} main(){return add(2, 3);}"
+
 echo OK
