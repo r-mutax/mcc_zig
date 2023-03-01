@@ -5,6 +5,11 @@ const stderr = std.io.getStdErr().writer();
 
 const Tokenizer = @import("Tokenizer.zig");
 const Token = Tokenizer.Token;
+
+const scope = @import("scope.zig");
+const ScopeManager = scope.ScopeManager;
+const Ident = scope.Ident;
+
 pub const TokenList = std.MultiArrayList(struct {
     tag: Token.Tag,
     start: usize,
@@ -84,26 +89,6 @@ pub const Node = struct {
     data: usize = undefined,    // extra data index
 };
 
-pub const Ident = struct {
-    const Tag = enum {
-        local_variable,
-        function,
-        paramater,
-    };
-    size: u32 = undefined,
-    tag: Tag,
-    offset: u32 = undefined,
-};
-pub const IdentList = std.MultiArrayList(Ident);
-
-pub const Scope = struct {
-    dict: std.StringHashMap(usize),
-    level: u8,
-    parent: ?usize,
-    offset: u32 = 0,
-};
-pub const ScopeList = std.MultiArrayList(Scope);
-
 
 pub const Nodes = std.MultiArrayList(Node);
 
@@ -123,9 +108,11 @@ pub const Parser = struct {
     root: usize,            // NodeList index of rootNode.
     nodes: Nodes = undefined,
     functions: FunctionList = undefined,
-    scopes: ScopeList = undefined,
-    scidx: usize,
-    idents: IdentList = undefined,
+    scopemng: ScopeManager = undefined,
+
+    // scopes: ScopeList = undefined,
+    // scidx: usize,
+    // idents: IdentList = undefined,
     memory: u32 = 0,
     //stmts: Stmts = undefined,
     extras: ExtraDataList = undefined,
@@ -136,7 +123,6 @@ pub const Parser = struct {
             .source = source,
             .tkidx = 0,
             .root = 0,
-            .scidx = 0,
         };
     }
 
@@ -146,9 +132,8 @@ pub const Parser = struct {
         self.tokens = TokenList{};
         self.nodes = Nodes{};
         self.functions = FunctionList{};
-        self.scopes = ScopeList{};
-        self.idents = IdentList{};
         self.extras = ExtraDataList{};
+        self.scopemng = ScopeManager.init(self.gpa);
 
         var tokenizer = Tokenizer.Tokenizer.init(self.source);   
         while(true) {
@@ -164,62 +149,9 @@ pub const Parser = struct {
             }
         }
 
-        self.genGlobalScope();
-        self.scopes.items(.parent)[self.scidx] = null;
-
         // パースする
         self.parseProgram() catch unreachable;
         return;
-    }
-
-    pub fn genGlobalScope(self: *Parser) void {
-        self.scopes.append(self.gpa, .{
-            .dict = std.StringHashMap(usize).init(self.gpa),
-            .level = 0,
-            .parent = null,
-        }) catch unreachable;
-        self.scidx = 0;
-        return;
-    }
-    // pub fn genScope(self: *Parser) void {
-    //     const idx = self.scopes.len;
-    //     self.scopes.append(self.gpa, .{
-    //         .dict = std.StringHashMap(usize).init(self.gpa),
-    //         .level = self.scopes.items(.level)[self.scidx],
-    //         .parent = self.scidx,
-    //     }) catch unreachable;
-    //     self.scidx = idx;
-    //     return;
-    // }
-
-    pub fn findIdent(self: *Parser, name: [] const u8) ?usize {       
-        var idx = self.scidx;
-        while(true){
-            var dict = self.scopes.items(.dict)[idx];
-            const ident = dict.get(name);
-            if(ident) |i|{
-                return i;
-            }
-
-            var parent = self.scopes.items(.parent)[idx];
-            if(parent == null){
-                return null;
-            }
-
-            idx = parent.?;
-        }
-    }
-
-    pub fn appendIdent(self: *Parser, name: [] const u8, ident: Ident) usize {
-        self.memory += ident.size;
-        const ident_idx = self.idents.len;
-        self.idents.append(self.gpa, ident) catch unreachable;
-
-        var dict = self.scopes.items(.dict)[self.scidx];
-
-        dict.put(name, ident_idx) catch unreachable;
-        self.scopes.items(.dict)[self.scidx] = dict;
-        return ident_idx;
     }
 
     pub fn getFuncName(self:*Parser, idx:usize) [] const u8 {
@@ -239,7 +171,7 @@ pub const Parser = struct {
     }
 
     pub fn getVariableOffset(self: *Parser, idx: usize) usize{
-        return self.idents.items(.offset)[idx];
+        return self.scopemng.getVariableOffset(idx);
     }
 
     pub fn getNodeTag(self:*Parser, node: usize) Node.Tag {
@@ -260,7 +192,7 @@ pub const Parser = struct {
 
     pub fn getNodeOffset(self: *Parser, node: usize) u32 {
         const ident = self.nodes.items(.ident)[node];
-        const offset = self.idents.items(.offset)[ident];
+        const offset = self.scopemng.getVariableOffset(ident);
         return offset;
     }
 
@@ -393,7 +325,7 @@ pub const Parser = struct {
             return null;
         }
         const name = self.getCurrentTokenSlice();
-        _ = self.appendIdent(name, .{
+        _ = self.scopemng.addIdent(name, .{
             .tag = .function,
         });
         _ = self.nextToken();
@@ -406,14 +338,15 @@ pub const Parser = struct {
             .body = undefined,
         };
 
+        self.scopemng.startScope();
         try self.expectToken(Token.Tag.tk_l_paren);
         if(self.currentTokenTag() != Token.Tag.tk_r_paren){
             while(true){
                 const param = try self.expectIdentToken();
                 // TODO :: add double definition error
-                const param_idx = self.appendIdent(param, .{
+                const param_idx = self.scopemng.addIdent(param, .{
                     .tag = .paramater,
-                    .offset = self.memory + 8,
+                    .offset = self.scopemng.getFunctionMemorySize() + 8,
                     .size = 8,
                 });
                 try result.params.append(param_idx);
@@ -428,7 +361,9 @@ pub const Parser = struct {
 
         const body = try self.parseBlock();
         result.body = body;
-        result.memory = self.memory;
+        result.memory = self.scopemng.getFunctionMemorySize();
+
+        self.scopemng.endScope() catch unreachable;
         return result;
     }
 
@@ -508,11 +443,13 @@ pub const Parser = struct {
         var data = ExtraData{};
         data.body = Stmts.init(self.gpa);
         
+        self.scopemng.startScope();
         while(self.currentTokenTag() != Token.Tag.tk_r_brace){
             const stmt = try self.parseStmt();
             data.body.append(stmt) catch unreachable;
         }
         try self.expectToken(Token.Tag.tk_r_brace);
+        self.scopemng.endScope() catch unreachable;
 
         return self.addNode(.{
             .tag = .nd_block,
@@ -852,10 +789,10 @@ pub const Parser = struct {
         switch(self.currentTokenTag()){
             .tk_identifier => {
                 const name = self.getCurrentTokenSlice();
-                const ident = self.findIdent(name);
+                const ident = self.scopemng.findIdent(name);
 
                 if(ident) |i| {
-                    switch(self.idents.items(.tag)[i]){
+                    switch(self.scopemng.getIdentTag(i)){
                         .local_variable, .paramater => {
                             return self.addNode(Node{
                                 .tag = .nd_lvar,
@@ -868,7 +805,11 @@ pub const Parser = struct {
                         },
                     }
                 } else {
-                    const add_ident = self.appendIdent(name, Ident { .tag = .local_variable, .size = 8, .offset = self.memory + 8 });
+                    const add_ident = self.scopemng.addIdent(name, .{
+                        .tag = .local_variable,
+                        .size = 8,
+                        .offset = self.scopemng.getFuncMemory() + 8
+                    });
 
                     return self.addNode(Node{
                         .tag = .nd_lvar,
