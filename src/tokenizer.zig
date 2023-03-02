@@ -1,5 +1,5 @@
 const std = @import("std");
-const err = @import("./error.zig");
+const err = @import("error.zig");
 
 const expect = std.testing.expect;
 

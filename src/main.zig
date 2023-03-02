@@ -3,7 +3,7 @@ const expect = std.testing.expect;
 const dprint = std.debug.print;
 
 const tokenizer_lib = @import("tokenizer.zig");
-const CodeGen = @import("./codegen.zig");
+const CodeGen = @import("codegen.zig");
 
 pub fn main() !void {
     

@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 const stdout = std.io.getStdOut().writer();
 const stderr = std.io.getStdErr().writer();
 
-const Tokenizer = @import("Tokenizer.zig");
+const Tokenizer = @import("tokenizer.zig");
 const Token = Tokenizer.Token;
 
 const scope = @import("scope.zig");
