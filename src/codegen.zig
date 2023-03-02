@@ -9,12 +9,11 @@ const stderr = std.io.getStdErr().writer();
 const stdout = std.io.getStdOut().writer();
 const Allocator = std.mem.Allocator;
 
-
 pub const Codegen = struct {
     parser: Parser = undefined,
     label_no: u32 = 0,
 
-    const argreg64 = [_] [:0] const u8 {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+    const argreg64 = [_][:0]const u8{ "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
     pub fn init(gpa: Allocator, source: [:0]const u8) Codegen {
         var result = Codegen{};
         result.parser = Parser.init(gpa, source);
@@ -35,29 +34,29 @@ pub const Codegen = struct {
     }
 
     fn genProgram(self: *Codegen) !void {
-        var func_idx : usize = 0;
-        while(func_idx < self.parser.functions.len) : (func_idx += 1){
+        var func_idx: usize = 0;
+        while (func_idx < self.parser.functions.len) : (func_idx += 1) {
             try self.genFunction(func_idx);
         }
     }
 
-    fn genFunction(self: *Codegen, idx : usize) !void {
+    fn genFunction(self: *Codegen, idx: usize) !void {
         const func_name = self.parser.getFuncName(idx);
-        _ = try stdout.print("{s}:\n", .{ func_name });
+        _ = try stdout.print("{s}:\n", .{func_name});
 
         // prologue
         const memory = self.parser.getFuncMemory(idx);
         _ = try stdout.writeAll("  push rbp\n");
         _ = try stdout.writeAll("  mov rbp, rsp\n");
-        
+
         // alloc local variable area.
-        _ = try stdout.print("  sub rsp, {}\n", .{ ((memory + 15) / 16) * 16 });
+        _ = try stdout.print("  sub rsp, {}\n", .{((memory + 15) / 16) * 16});
 
         // move arguments register to stack.
         var params = self.parser.getFundParams(idx);
-        for(params.items) |p, i| {
+        for (params.items, 0..) |p, i| {
             const offset = self.parser.getVariableOffset(p);
-            _ = try stdout.print("  mov [rbp - {}], {s}\n", .{offset, argreg64[i]});
+            _ = try stdout.print("  mov [rbp - {}], {s}\n", .{ offset, argreg64[i] });
         }
 
         try self.gen_stmt(self.parser.getFuncBody(idx));
@@ -69,7 +68,7 @@ pub const Codegen = struct {
     }
 
     fn gen_lval(self: *Codegen, node: usize) !void {
-        if(self.parser.getNodeTag(node) != Node.Tag.nd_lvar){
+        if (self.parser.getNodeTag(node) != Node.Tag.nd_lvar) {
             stderr.writeAll("error") catch unreachable;
             return;
         }
@@ -90,8 +89,8 @@ pub const Codegen = struct {
         // const tk = self.parser.getTokenSlice(token);
         // const tk2 = self.parser.getTokenSlice(token+1);
         // _ = try stdout.print("# {s}{s}\n", .{tk, tk2});
-        switch(self.parser.getNodeTag(node)){
-            Node.Tag.nd_return =>{
+        switch (self.parser.getNodeTag(node)) {
+            Node.Tag.nd_return => {
                 try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.writeAll("  mov rsp, rbp\n");
@@ -99,7 +98,7 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  ret\n");
                 return;
             },
-            Node.Tag.nd_if_simple =>{
+            Node.Tag.nd_if_simple => {
                 const no = self.getLabelNo();
                 try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
@@ -110,7 +109,7 @@ pub const Codegen = struct {
                 _ = try stdout.print(".Lend{}:\n", .{no});
                 return;
             },
-            Node.Tag.nd_if=> {
+            Node.Tag.nd_if => {
                 const no = self.getLabelNo();
                 const then_else = self.parser.getNodeRhs(node);
                 try self.gen_expr(self.parser.getNodeLhs(node));
@@ -125,7 +124,7 @@ pub const Codegen = struct {
 
                 // else block
                 _ = try stdout.print(".Lelse{}:\n", .{no});
-                  try self.gen_stmt(self.parser.getNodeRhs(then_else));
+                try self.gen_stmt(self.parser.getNodeRhs(then_else));
 
                 _ = try stdout.print(".Lend{}:\n", .{no});
             },
@@ -158,7 +157,7 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  cmp rax, 0\n");
                 _ = try stdout.writeAll("  sete al\n");
                 _ = try stdout.print("  je .Lend{}\n", .{no});
-                
+
                 try self.gen_stmt(self.parser.getNodeLhs(node));
                 try self.gen_stmt(self.parser.getExtraDataIncNode(extra));
                 _ = try stdout.print("  jmp .Lstart{}\n", .{no});
@@ -168,7 +167,7 @@ pub const Codegen = struct {
                 const extra = self.parser.getNodeExtra(node);
                 const stmts = self.parser.getExtraDataBody(extra);
 
-                for(stmts.items) |stmt| {
+                for (stmts.items) |stmt| {
                     try self.gen_stmt(stmt);
                 }
             },
@@ -177,8 +176,7 @@ pub const Codegen = struct {
     }
 
     fn gen_expr(self: *Codegen, node: usize) !void {
-
-        switch(self.parser.getNodeTag(node)){
+        switch (self.parser.getNodeTag(node)) {
             Node.Tag.nd_num => {
                 const val = self.parser.getNodeValue(node);
                 _ = try stdout.print("  push {}\n", .{val});
@@ -215,12 +213,12 @@ pub const Codegen = struct {
 
                 const extra = self.parser.getNodeExtra(node);
                 const args = self.parser.getExtraDataBody(extra);
-                for(args.items) |arg| {
+                for (args.items) |arg| {
                     try self.gen_expr(arg);
                     //_ = try stdout.writeAll("  pop rax\n");
                 }
 
-                for(args.items) |_, idx| {
+                for (args.items, 0..) |_, idx| {
                     _ = try stdout.print("  pop {s}\n", .{argreg64[args.items.len - 1 - idx]});
                 }
 
@@ -279,7 +277,7 @@ pub const Codegen = struct {
             .nd_cond_expr => {
                 const no = self.getLabelNo();
                 const extra = self.parser.getNodeExtra(node);
-                
+
                 try self.gen_expr(self.parser.getNodeLhs(node));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.writeAll("  cmp rax, 0\n");
@@ -292,19 +290,19 @@ pub const Codegen = struct {
                 try self.gen_expr(self.parser.getNodeRhs(extra));
                 _ = try stdout.writeAll("  pop rax\n");
                 _ = try stdout.print(".Lend{}:\n", .{no});
-                
+
                 _ = try stdout.writeAll("  push rax\n");
-                return;                
+                return;
             },
-            else => {}
+            else => {},
         }
 
         try self.gen_expr(self.parser.getNodeLhs(node));
         try self.gen_expr(self.parser.getNodeRhs(node));
-        _ = try stdout.writeAll("  pop rdi\n") ;
-        _ = try stdout.writeAll("  pop rax\n") ;
+        _ = try stdout.writeAll("  pop rdi\n");
+        _ = try stdout.writeAll("  pop rax\n");
 
-        switch(self.parser.getNodeTag(node)){
+        switch (self.parser.getNodeTag(node)) {
             Node.Tag.nd_add => {
                 _ = try stdout.writeAll("  add rax, rdi\n");
             },
@@ -318,12 +316,12 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  cqo\n");
                 _ = try stdout.writeAll("  idiv rdi\n");
             },
-            Node.Tag.nd_equal=> {
+            Node.Tag.nd_equal => {
                 _ = try stdout.writeAll("  cmp rax, rdi\n");
                 _ = try stdout.writeAll("  sete al\n");
                 _ = try stdout.writeAll("  movzb rax, al\n");
             },
-            Node.Tag.nd_not_equal=> {
+            Node.Tag.nd_not_equal => {
                 _ = try stdout.writeAll("  cmp rax, rdi\n");
                 _ = try stdout.writeAll("  setne al\n");
                 _ = try stdout.writeAll("  movzb rax, al\n");
@@ -347,13 +345,10 @@ pub const Codegen = struct {
             Node.Tag.nd_bit_or => {
                 _ = try stdout.writeAll("  or rax, rdi\n");
             },
-            else => {
-
-            }
+            else => {},
         }
         try stdout.writeAll("  push rax\n");
     }
-
 };
 
 test "codegen" {
