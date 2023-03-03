@@ -3,8 +3,8 @@ name: Zig Build
 on: 
   push:
     paths:
-      - '.github/workflows/zig-1.yml'
-      - 'zig/main.zig'
+      - '.github/workflows/zig-build.yml'
+      - 'src/*'
   workflow_dispatch:
 
 jobs:
