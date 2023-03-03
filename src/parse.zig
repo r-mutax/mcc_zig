@@ -109,12 +109,7 @@ pub const Parser = struct {
     nodes: Nodes = undefined,
     functions: FunctionList = undefined,
     scopemng: ScopeManager = undefined,
-
-    // scopes: ScopeList = undefined,
-    // scidx: usize,
-    // idents: IdentList = undefined,
     memory: u32 = 0,
-    //stmts: Stmts = undefined,
     extras: ExtraDataList = undefined,
 
     pub fn init(gpa: Allocator, source: [:0]const u8) Parser {
@@ -280,6 +275,14 @@ pub const Parser = struct {
 
         const slice = tokenizer.getSlice(start);
         return slice;
+    }
+
+    pub fn getLine(self: *Parser, token: usize) [] const u8 {
+        const start = self.tokens.items(.start)[token];
+        var tokenizer = Tokenizer.Tokenizer.init(self.source);
+
+        const line = tokenizer.getLine(start);
+        return line;
     }
 
     pub fn getStmtNode(self: *Parser, node: usize, stmt: usize) usize {

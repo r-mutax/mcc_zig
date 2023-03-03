@@ -85,7 +85,9 @@ pub const Codegen = struct {
     }
 
     fn gen_stmt(self: *Codegen, node: usize) !void {
-        // var token = self.parser.getNodeMainToken(node);
+        const token = self.parser.getNodeMainToken(node);
+        const line = self.parser.getLine(token);
+        _ = try stdout.print("# {s}\n", .{line});
         // const tk = self.parser.getTokenSlice(token);
         // const tk2 = self.parser.getTokenSlice(token+1);
         // _ = try stdout.print("# {s}{s}\n", .{tk, tk2});

@@ -372,6 +372,22 @@ pub const Tokenizer = struct {
         const token = self.next();
         return self.buffer[token.loc.start..token.loc.end];
     }
+
+    pub fn getLine(self: *Tokenizer, start: usize) [] const u8 {
+        self.index = start;
+
+        while(true) : (self.index += 1){
+            const c = self.buffer[self.index];
+            switch(c){
+                '\n', 'r' => {
+                    break;
+                },
+                else => {},
+            }
+        }
+
+        return self.buffer[start..self.index];
+    }
 };
 
 test "tokenizer test" {
