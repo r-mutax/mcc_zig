@@ -56,6 +56,10 @@ assert 0 "main(){ return 0 || 0;}"
 assert 2 "main(){ return 1 ? 2 : 3;}"
 assert 3 "main(){ return 0 ? 2 : 3;}"
 
+# function call with arguments
 assert 5 "add(a,b){return a + b;} main(){return add(2, 3);}"
+
+# operator of address
+assert 15 "main(){ a = 10; b = &a; return 5 + *b;}"
 
 echo OK

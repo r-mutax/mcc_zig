@@ -9,34 +9,34 @@ pub const TokenError = error {
 
 pub const Token = struct {
     pub const Tag = enum {
-        tk_add,
-        tk_sub,
-        tk_mul,
-        tk_div,
+        tk_add,                     // +
+        tk_sub,                     // -
+        tk_mul,                     // *
+        tk_div,                     // /
         tk_num,
         tk_eof,
         tk_invalid,
-        tk_l_paren,
-        tk_r_paren,
-        tk_incr,
-        tk_decr,
-        tk_equal,
-        tk_assign,
-        tk_not_equal,
+        tk_l_paren,                 // (
+        tk_r_paren,                 // )
+        tk_incr,                    // ++
+        tk_decr,                    // --
+        tk_equal,                   // ==
+        tk_assign,                  // =
+        tk_not_equal,               // !=
         tk_l_angle_bracket,         // <
         tk_l_angle_bracket_equal,   // <=
         tk_r_angle_bracket,         // >
         tk_r_angle_bracket_equal,   // >=
-        tk_l_brace,                // {
+        tk_l_brace,                 // {
         tk_r_brace,                 // }
-        tk_identifier,
-        tk_semicoron,
-        tk_return,
-        tk_if,
-        tk_else,
-        tk_while,
-        tk_for,
-        tk_canma,
+        tk_identifier, 
+        tk_semicoron,               // ;
+        tk_return,                  // return
+        tk_if,                      // if
+        tk_else,                    // else
+        tk_while,                   // while
+        tk_for,                     // for
+        tk_canma,                   // ,
         tk_and,                     // &
         tk_and_and,                 // &&
         tk_pipe,                    // |

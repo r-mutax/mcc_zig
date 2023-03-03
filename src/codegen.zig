@@ -296,6 +296,17 @@ pub const Codegen = struct {
                 _ = try stdout.writeAll("  push rax\n");
                 return;
             },
+            .nd_address => {
+                try self.gen_lval(self.parser.getNodeLhs(node));
+                return;
+            },
+            .nd_dreference => {
+                try self.gen_expr(self.parser.getNodeLhs(node));
+                _ = try stdout.writeAll("  pop rax\n");
+                _ = try stdout.writeAll("  mov rax, [rax]\n");
+                _ = try stdout.writeAll("  push rax\n");
+                return;
+            },
             else => {},
         }
 

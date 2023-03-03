@@ -79,6 +79,10 @@ pub const Node = struct {
             // logic or
         nd_cond_expr,
             // condition expression
+        nd_address,
+            // address
+        nd_dreference,
+            // pointer dereference
     };
     main_token: usize,
     lhs: usize = undefined, // NodeLists index
@@ -312,6 +316,8 @@ pub const Parser = struct {
     // add = mul ( '+' mul | '/' mul )
     // mul = unary ( '*' unary | '/' unary )
     // unary = ( '+' | '-' )? primary
+    //          | '*' unary
+    //          | '&' unary
     // primary = ( num | '(' expr ')' | ident )
 
     fn parseProgram(self: *Parser) !void {
@@ -748,6 +754,18 @@ pub const Parser = struct {
                 .main_token = self.nextToken(),
                 .lhs = self.addNodeImm(0),
                 .rhs = self.parsePrimary() catch unreachable,
+            });
+        } else if(self.currentTokenTag() == Token.Tag.tk_mul) {
+            return self.addNode(.{
+                .tag = .nd_dreference,
+                .main_token = self.nextToken(),
+                .lhs = try self.parseUnary(),
+            });
+        } else if(self.currentTokenTag() == Token.Tag.tk_and) {
+            return self.addNode(.{
+                .tag = .nd_address,
+                .main_token = self.nextToken(),
+                .lhs = try self.parseUnary(),
             });
         } else {
             return self.parsePrimary() catch unreachable;
