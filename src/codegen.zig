@@ -4,8 +4,8 @@ const AST = @import("AST.zig");
 
 const Parser = parse.Parser;
 const Node = AST.Node;
-const Function = parse.Function;
-const Stmts = parse.Stmts;
+const Function = AST.Function;
+const Stmts = AST.Stmts;
 const stderr = std.io.getStdErr().writer();
 const stdout = std.io.getStdOut().writer();
 const Allocator = std.mem.Allocator;

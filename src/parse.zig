@@ -7,6 +7,14 @@ const stderr = std.io.getStdErr().writer();
 const Node = AST.Node;
 const NodeList = AST.NodeList;
 
+const ExtraData = AST.ExtraData;
+const ExtraDataList = AST.ExtraDataList;
+
+const Function = AST.Function;
+const FunctionList = AST.FunctionList;
+
+const Stmts = AST.Stmts;
+
 const Tokenizer = @import("tokenizer.zig");
 const Token = Tokenizer.Token;
 
@@ -19,25 +27,6 @@ pub const TokenList = std.MultiArrayList(struct {
     start: usize,
 });
 const TokenError = Tokenizer.TokenError;
-
-pub const Stmts = std.ArrayList(usize);
-
-pub const ExtraData = struct {
-    init: usize = undefined,
-    cond: usize = undefined,
-    inc: usize = undefined,
-    body: Stmts = undefined,
-};
-pub const ExtraDataList = std.MultiArrayList(ExtraData);
-
-
-pub const Function = struct {
-    name: [] const u8,
-    body: usize,
-    memory: u32 = 0,
-    params: std.ArrayList(usize) = undefined,
-};
-pub const FunctionList = std.MultiArrayList(Function);
 
 pub const Parser = struct {
     gpa: Allocator,

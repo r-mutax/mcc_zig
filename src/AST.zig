@@ -67,6 +67,22 @@ pub const Node = struct {
     ident: usize = undefined,
     data: usize = undefined,    // extra data index
 };
+pub const Function = struct {
+    name: [] const u8,
+    body: usize,
+    memory: u32 = 0,
+    params: std.ArrayList(usize) = undefined,
+};
+
+pub const ExtraData = struct {
+    init: usize = undefined,
+    cond: usize = undefined,
+    inc: usize = undefined,
+    body: Stmts = undefined,
+};
 
 pub const NodeList = std.MultiArrayList(AST.Node);
+pub const FunctionList = std.MultiArrayList(Function);
+pub const ExtraDataList = std.MultiArrayList(ExtraData);
+pub const Stmts = std.ArrayList(usize);
 
