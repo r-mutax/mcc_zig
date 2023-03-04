@@ -63,3 +63,5 @@ assert 5 "add(a,b){return a + b;} main(){return add(2, 3);}"
 assert 15 "main(){ a = 10; b = &a; return 5 + *b;}"
 
 echo OK
+
+exit 0

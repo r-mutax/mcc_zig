@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,3 +18,19 @@ jobs:
         with:
           version: master
       - run: zig build
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v3
+        - uses: goto-bus-stop/setup-zig@v2.0.1
+          with:
+            version: master
+        - run: zig build
+        - name: whoami
+          run: whoami
+        
+        - name: ls
+          run: ls -lha ./test.sh
+
+        - run: sh ./test.sh
