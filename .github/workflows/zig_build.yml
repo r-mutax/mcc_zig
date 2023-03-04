@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,3 +18,8 @@ jobs:
         with:
           version: master
       - run: zig build
+  test:
+    needs: build
+      runs-on: ubuntu-latest
+      steps:
+        - run: ./test.sh
