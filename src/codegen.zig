@@ -1,8 +1,9 @@
 const std = @import("std");
 const parse = @import("parse.zig");
+const AST = @import("AST.zig");
 
 const Parser = parse.Parser;
-const Node = parse.Node;
+const Node = AST.Node;
 const Function = parse.Function;
 const Stmts = parse.Stmts;
 const stderr = std.io.getStdErr().writer();
