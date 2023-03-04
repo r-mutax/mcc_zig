@@ -22,4 +22,4 @@ jobs:
     needs: build
       runs-on: ubuntu-latest
       steps:
-        - run: ./test.sh
+        - run: test.sh
