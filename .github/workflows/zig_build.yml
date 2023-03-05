@@ -27,4 +27,4 @@ jobs:
           with:
             version: master
         - run: zig build
-        - run: ./test.sh
+        - run: sh ./test.sh
