@@ -1,5 +1,144 @@
 const std = @import("std");
-const AST = @This();
+const Allocator = std.mem.Allocator;
+const Tokenizer = @import("./tokenizer.zig");
+const Parser = @import("./parse.zig").Parser;
+const Ast = @This();
+const scope = @import("scope.zig");
+const ScopeManager = scope.ScopeManager;
+const Ident = scope.Ident;
+
+source: [:0] const u8,
+tokens: TokenList.Slice,
+nodes: NodeList.Slice,
+extra_data: ExtraDataList.Slice,
+funclist: FunctionList.Slice,
+scopmng: ScopeManager,
+
+pub const TokenList = std.MultiArrayList(struct {
+    tag: Token.Tag,
+    start: usize,
+});
+
+pub fn deinit(tree: *Ast, gpa: Allocator) void {
+    tree.tokens.deinit(gpa);
+    tree.nodes.deinit(gpa);
+    gpa.free(tree.extra_data);
+    tree.* = undefined;
+}
+
+pub fn parse(gpa: Allocator, source: [:0] const u8) Allocator.Error ! Ast {
+    var tokens = Ast.TokenList{};
+    defer tokens.deinit(gpa);
+
+    var tokenizer = Tokenizer.init(source); 
+    while(true){
+        const token = tokenizer.next();
+        try tokens.append(gpa, .{
+                    .tag = token.tag,
+                    .start = token.loc.start,
+                });
+        if(token.tag == Token.Tag.tk_eof){
+            break;
+        }
+    }
+
+    var parser = Parser.init(gpa, source);
+    defer parser.nodes.deinit(gpa);
+
+    parser.parse();
+
+    return Ast{
+        .source = source,
+        .tokens = tokens.toOwnedSlice(),
+        .nodes = parser.nodes.toOwnedSlice(),
+        .extra_data = parser.extras.toOwnedSlice(),
+        .funclist = parser.functions.toOwnedSlice(),
+        .scopmng = parser.scopemng,
+    };
+}
+
+pub fn getFuncName(self:*Ast, idx:usize) [] const u8 {
+    return self.funclist.items(.name)[idx];
+}
+
+pub fn getFuncMemory(self: *Ast, idx: usize) u32 {
+    return self.funclist.items(.memory)[idx];
+}
+
+pub fn getFuncBody(self: *Ast, idx: usize) usize {
+    return self.funclist.items(.body)[idx];
+}
+
+pub fn getFundParams(self: *Ast, idx: usize) std.ArrayList(usize) {
+    return self.funclist.items(.params)[idx];
+}
+
+pub fn getVariableOffset(self: *Ast, idx: usize) usize{
+    return self.scopmng.getVariableOffset(idx);
+}
+
+pub fn getNodeTag(self:*Ast, node: usize) Node.Tag {
+    return self.nodes.items(.tag)[node];
+}
+
+pub fn getNodeValue(self: *Ast, node: usize) u32 {
+    return self.nodes.items(.val)[node];
+}
+
+pub fn getNodeLhs(self: *Ast, node: usize) usize {
+    return self.nodes.items(.lhs)[node];
+}
+
+pub fn getNodeRhs(self: *Ast, node: usize) usize {
+    return self.nodes.items(.rhs)[node];
+}
+
+pub fn getNodeOffset(self: *Ast, node: usize) u32 {
+    const ident = self.nodes.items(.ident)[node];
+    const offset = self.scopmng.getVariableOffset(ident);
+    return offset;
+}
+
+pub fn getNodeMainToken(self: *Ast, node: usize) usize {
+    return self.nodes.items(.main_token)[node];
+}
+
+pub fn getLine(self: *Ast, token: usize) [] const u8 {
+    const start = self.tokens.items(.start)[token];
+    var tokenizer = Tokenizer.init(self.source);
+
+    const line = tokenizer.getLine(start);
+    return line;
+}
+
+pub fn getTokenSlice(self: *Ast, token: usize) [] const u8 {
+    const start = self.tokens.items(.start)[token];
+    var tokenizer = Tokenizer.init(self.source);
+
+    const slice = tokenizer.getSlice(start);
+    return slice;
+}
+
+pub fn getExtraDataInitNode(self: *Ast, idx: usize) usize {
+    return self.extra_data.items(.init)[idx];
+}
+
+pub fn getExtraDataCondNode(self: *Ast, idx: usize) usize {
+    return self.extra_data.items(.cond)[idx];
+}
+
+pub fn getExtraDataIncNode(self: *Ast, idx: usize) usize {
+    return self.extra_data.items(.inc)[idx];
+}
+
+pub fn getExtraDataBody(self: *Ast, idx: usize) Stmts {
+    return self.extra_data.items(.body)[idx];
+}
+
+pub fn getNodeExtra(self: *Ast, node: usize) usize {
+    return self.nodes.items(.data)[node];
+}
+
 
 pub const Node = struct {
     pub const Tag = enum {
@@ -81,8 +220,8 @@ pub const ExtraData = struct {
     body: Stmts = undefined,
 };
 
-pub const NodeList = std.MultiArrayList(AST.Node);
+pub const NodeList = std.MultiArrayList(Ast.Node);
 pub const FunctionList = std.MultiArrayList(Function);
 pub const ExtraDataList = std.MultiArrayList(ExtraData);
 pub const Stmts = std.ArrayList(usize);
-
+const Token = Tokenizer.Token;

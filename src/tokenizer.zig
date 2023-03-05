@@ -1,5 +1,6 @@
 const std = @import("std");
 const err = @import("error.zig");
+const Tokenizer = @This();
 
 const expect = std.testing.expect;
 
@@ -66,329 +67,327 @@ pub const Token = struct {
     loc: Loc,
 };
 
-pub const Tokenizer = struct {
-    buffer: [:0] const u8,
-    index: usize,
-    
-    pub fn init(buffer: [:0]const u8) Tokenizer {
-        return Tokenizer {
-            .buffer = buffer,
-            .index = 0,
-        };
-    }
+buffer: [:0] const u8,
+index: usize,
 
-    const State = enum {
-        start,
-        plus,
-        minus,
-        multiple,
-        division,
-        int,
-        l_paren,
-        r_paren,
-        l_brace,
-        r_brace,
-        equal,
-        exclamation,
-        l_angle_bracket,
-        r_angle_bracket,
-        identifier,
-        semicoron,
-        canma,
-        ampersand,
-        pipe,
-        hat,
-        question,
-        coron,
+pub fn init(buffer: [:0]const u8) Tokenizer {
+    return Tokenizer {
+        .buffer = buffer,
+        .index = 0,
+    };
+}
+
+const State = enum {
+    start,
+    plus,
+    minus,
+    multiple,
+    division,
+    int,
+    l_paren,
+    r_paren,
+    l_brace,
+    r_brace,
+    equal,
+    exclamation,
+    l_angle_bracket,
+    r_angle_bracket,
+    identifier,
+    semicoron,
+    canma,
+    ampersand,
+    pipe,
+    hat,
+    question,
+    coron,
+};
+
+pub fn next(self: *Tokenizer) Token {
+    var result = Token{
+        .tag = .tk_eof,
+        .loc = .{
+            .start = self.index,
+            .end = undefined,
+        },
     };
 
-    pub fn next(self: *Tokenizer) Token {
-        var result = Token{
-            .tag = .tk_eof,
-            .loc = .{
-                .start = self.index,
-                .end = undefined,
+    var state : State = .start;
+    while(true) : (self.index += 1){
+        const c = self.buffer[self.index];
+        switch(state) {
+            .start => switch(c){
+                0 => {
+                    break;
+                },
+                ' ', '\n', '\t', '\r' => {
+                    result.loc.start = self.index + 1;
+                },
+                '+' => {
+                    state = .plus;
+                },
+                '-' => {
+                    state = .minus;
+                },
+                '*' => {
+                    state = .multiple;
+                },
+                '/' => {
+                    state = .division;
+                },
+                '(' => {
+                    state = .l_paren;
+                },
+                ')' => {
+                    state = .r_paren;
+                },
+                '{' => {
+                    state = .l_brace;
+                },
+                '}' => {
+                    state = .r_brace;
+                },
+                '=' => {
+                    state = .equal;
+                },
+                '!' => {
+                    state = .exclamation;
+                },
+                '<' => {
+                    state = .l_angle_bracket;
+                },
+                '>' => {
+                    state = .r_angle_bracket;
+                },
+                ';' => {
+                    state = .semicoron;
+                },
+                ',' => {
+                    state = .canma;
+                },
+                '&' => {
+                    state = .ampersand;
+                },
+                '|' => {
+                    state = .pipe;
+                },
+                '^' => {
+                    state = .hat;
+                },
+                ':' => {
+                    state = .coron;
+                },
+                '?' => {
+                    state = .question;
+                },
+                '0'...'9' => {
+                    state = .int;
+                    result.tag = .tk_num;
+                },
+                'a'...'z', 'A'...'Z', '_' => {
+                    state = .identifier;
+                    result.tag = .tk_identifier;
+                },
+                else => {
+                    result.tag = .tk_invalid;
+                    result.loc.end = self.index;
+                    self.index += 1;
+                    return result;
+                },
             },
-        };
-
-        var state : State = .start;
-        while(true) : (self.index += 1){
-            const c = self.buffer[self.index];
-            switch(state) {
-                .start => switch(c){
-                    0 => {
+            .identifier => {
+                switch(c) {
+                    'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
+                    else => {
+                        if(Token.getKeywords(self.buffer[result.loc.start..self.index])) |tag| {
+                            result.tag = tag;
+                        }
                         break;
-                    },
-                    ' ', '\n', '\t', '\r' => {
-                        result.loc.start = self.index + 1;
-                    },
+                    }
+                }
+            },
+            .plus => {
+                switch(c){
                     '+' => {
-                        state = .plus;
-                    },
-                    '-' => {
-                        state = .minus;
-                    },
-                    '*' => {
-                        state = .multiple;
-                    },
-                    '/' => {
-                        state = .division;
-                    },
-                    '(' => {
-                        state = .l_paren;
-                    },
-                    ')' => {
-                        state = .r_paren;
-                    },
-                    '{' => {
-                        state = .l_brace;
-                    },
-                    '}' => {
-                        state = .r_brace;
-                    },
-                    '=' => {
-                        state = .equal;
-                    },
-                    '!' => {
-                        state = .exclamation;
-                    },
-                    '<' => {
-                        state = .l_angle_bracket;
-                    },
-                    '>' => {
-                        state = .r_angle_bracket;
-                    },
-                    ';' => {
-                        state = .semicoron;
-                    },
-                    ',' => {
-                        state = .canma;
-                    },
-                    '&' => {
-                        state = .ampersand;
-                    },
-                    '|' => {
-                        state = .pipe;
-                    },
-                    '^' => {
-                        state = .hat;
-                    },
-                    ':' => {
-                        state = .coron;
-                    },
-                    '?' => {
-                        state = .question;
-                    },
-                    '0'...'9' => {
-                        state = .int;
-                        result.tag = .tk_num;
-                    },
-                    'a'...'z', 'A'...'Z', '_' => {
-                        state = .identifier;
-                        result.tag = .tk_identifier;
+                        result.tag = .tk_incr;
                     },
                     else => {
-                        result.tag = .tk_invalid;
-                        result.loc.end = self.index;
-                        self.index += 1;
-                        return result;
+                        result.tag = .tk_add;
+                    }
+                }
+                break;
+            },
+            .minus => {
+                switch(c){
+                    '+' => {
+                        result.tag = .tk_decr;
                     },
-                },
-                .identifier => {
-                    switch(c) {
-                        'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
-                        else => {
-                            if(Token.getKeywords(self.buffer[result.loc.start..self.index])) |tag| {
-                                result.tag = tag;
-                            }
-                            break;
-                        }
+                    else => {
+                        result.tag = .tk_sub;
                     }
-                },
-                .plus => {
-                    switch(c){
-                        '+' => {
-                            result.tag = .tk_incr;
-                        },
-                        else => {
-                            result.tag = .tk_add;
-                        }
+                }
+                break;
+            },
+            .multiple => {
+                result.tag = .tk_mul;
+                break;
+            },
+            .division => {
+                result.tag = .tk_div;
+                break;
+            },
+            .int => {
+                switch(c){
+                    '0' ... '9' => {},
+                    else => break,
+                }
+            },
+            .l_paren => {
+                result.tag = .tk_l_paren;
+                break;
+            },
+            .r_paren => {
+                result.tag = .tk_r_paren;
+                break;
+            },
+            .l_brace => {
+                result.tag = .tk_l_brace;
+                break;
+            },
+            .r_brace => {
+                result.tag = .tk_r_brace;
+                break;
+            },
+            .canma => {
+                result.tag = .tk_canma;
+                break;
+            },
+            .equal => {
+                switch(c){
+                    '=' => {
+                        result.tag = .tk_equal;
+                        self.index += 1;
+                    },
+                    else => {
+                        result.tag = .tk_assign;
+                    },
+                }
+                break;
+            },
+            .exclamation => {
+                switch(c) {
+                    '=' => {
+                        result.tag = .tk_not_equal;
+                        self.index += 1;
+                        break;
+                    },
+                    else => break,
+                }
+            },
+            .l_angle_bracket => {
+                switch(c){
+                    '=' => {
+                        result.tag = .tk_l_angle_bracket_equal;
+                        self.index += 1;
+                        break;
+                    },
+                    else => {
+                        result.tag = .tk_l_angle_bracket;
+                        break;
                     }
-                    break;
-                },
-                .minus => {
-                    switch(c){
-                        '+' => {
-                            result.tag = .tk_decr;
-                        },
-                        else => {
-                            result.tag = .tk_sub;
-                        }
+                }
+            },
+            .r_angle_bracket => {
+                switch(c){
+                    '=' => {
+                        result.tag = .tk_r_angle_bracket_equal;
+                        self.index += 1;
+                        break;
+                    },
+                    else => {
+                        result.tag = .tk_r_angle_bracket;
+                        break;
                     }
-                    break;
-                },
-                .multiple => {
-                    result.tag = .tk_mul;
-                    break;
-                },
-                .division => {
-                    result.tag = .tk_div;
-                    break;
-                },
-                .int => {
-                    switch(c){
-                        '0' ... '9' => {},
-                        else => break,
+                }
+            },
+            .semicoron => {
+                result.tag = .tk_semicoron;
+                break;
+            },
+            .ampersand => {
+                switch(c){
+                    '&' => {
+                        result.tag = .tk_and_and;
+                        self.index += 1;
+                        break;
+                    },
+                    else => {
+                        result.tag = .tk_and;
+                        break;
                     }
-                },
-                .l_paren => {
-                    result.tag = .tk_l_paren;
-                    break;
-                },
-                .r_paren => {
-                    result.tag = .tk_r_paren;
-                    break;
-                },
-                .l_brace => {
-                    result.tag = .tk_l_brace;
-                    break;
-                },
-                .r_brace => {
-                    result.tag = .tk_r_brace;
-                    break;
-                },
-                .canma => {
-                    result.tag = .tk_canma;
-                    break;
-                },
-                .equal => {
-                    switch(c){
-                        '=' => {
-                            result.tag = .tk_equal;
-                            self.index += 1;
-                        },
-                        else => {
-                            result.tag = .tk_assign;
-                        },
+                }
+            },
+            .pipe => {
+                switch(c){
+                    '|' => {
+                        result.tag = .tk_pipe_pipe;
+                        self.index += 1;
+                        break;
+                    },
+                    else => {
+                        result.tag = .tk_pipe;
+                        break;
                     }
-                    break;
-                },
-                .exclamation => {
-                    switch(c) {
-                        '=' => {
-                            result.tag = .tk_not_equal;
-                            self.index += 1;
-                            break;
-                        },
-                        else => break,
-                    }
-                },
-                .l_angle_bracket => {
-                    switch(c){
-                        '=' => {
-                            result.tag = .tk_l_angle_bracket_equal;
-                            self.index += 1;
-                            break;
-                        },
-                        else => {
-                            result.tag = .tk_l_angle_bracket;
-                            break;
-                        }
-                    }
-                },
-                .r_angle_bracket => {
-                    switch(c){
-                        '=' => {
-                            result.tag = .tk_r_angle_bracket_equal;
-                            self.index += 1;
-                            break;
-                        },
-                        else => {
-                            result.tag = .tk_r_angle_bracket;
-                            break;
-                        }
-                    }
-                },
-                .semicoron => {
-                    result.tag = .tk_semicoron;
-                    break;
-                },
-                .ampersand => {
-                    switch(c){
-                        '&' => {
-                            result.tag = .tk_and_and;
-                            self.index += 1;
-                            break;
-                        },
-                        else => {
-                            result.tag = .tk_and;
-                            break;
-                        }
-                    }
-                },
-                .pipe => {
-                    switch(c){
-                        '|' => {
-                            result.tag = .tk_pipe_pipe;
-                            self.index += 1;
-                            break;
-                        },
-                        else => {
-                            result.tag = .tk_pipe;
-                            break;
-                        }
-                    }
-                },
-                .hat => {
-                    result.tag = .tk_hat;
-                    break;
-                },
-                .question => {
-                    result.tag = .tk_question;
-                    break;
-                },
-                .coron => {
-                    result.tag = .tk_coron;
-                    break;
-                },
-            }
+                }
+            },
+            .hat => {
+                result.tag = .tk_hat;
+                break;
+            },
+            .question => {
+                result.tag = .tk_question;
+                break;
+            },
+            .coron => {
+                result.tag = .tk_coron;
+                break;
+            },
         }
-
-        result.loc.end = self.index;
-        return result;
     }
 
-    pub fn getNumValue(self: *Tokenizer, start: usize) u32 {
-        // TODO : add error handling
+    result.loc.end = self.index;
+    return result;
+}
 
-        self.index = start;
-        const token = self.next();
-        const val = std.fmt.parseUnsigned(u32, self.buffer[token.loc.start..token.loc.end], 10) catch unreachable;
-        return val;
-    }
+pub fn getNumValue(self: *Tokenizer, start: usize) u32 {
+    // TODO : add error handling
 
-    pub fn getSlice(self: *Tokenizer, start: usize) [] const u8 {
-        self.index = start;
-        const token = self.next();
-        return self.buffer[token.loc.start..token.loc.end];
-    }
+    self.index = start;
+    const token = self.next();
+    const val = std.fmt.parseUnsigned(u32, self.buffer[token.loc.start..token.loc.end], 10) catch unreachable;
+    return val;
+}
 
-    pub fn getLine(self: *Tokenizer, start: usize) [] const u8 {
-        self.index = start;
+pub fn getSlice(self: *Tokenizer, start: usize) [] const u8 {
+    self.index = start;
+    const token = self.next();
+    return self.buffer[token.loc.start..token.loc.end];
+}
 
-        while(true) : (self.index += 1){
-            const c = self.buffer[self.index];
-            switch(c){
-                '\n', 'r' => {
-                    break;
-                },
-                else => {},
-            }
+pub fn getLine(self: *Tokenizer, start: usize) [] const u8 {
+    self.index = start;
+
+    while(true) : (self.index += 1){
+        const c = self.buffer[self.index];
+        switch(c){
+            '\n', 'r' => {
+                break;
+            },
+            else => {},
         }
-
-        return self.buffer[start..self.index];
     }
-};
+
+    return self.buffer[start..self.index];
+}
 
 test "tokenizer test" {
     try testTokenize("+ +-- 323 * /a return", &.{ .tk_add, .tk_add, .tk_sub, .tk_sub, .tk_num, .tk_mul, .tk_div, .tk_identifier, .tk_return});
