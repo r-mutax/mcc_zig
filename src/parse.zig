@@ -1,108 +1,29 @@
 const std = @import("std");
+const Ast = @import("./AST.zig");
 const Allocator = std.mem.Allocator;
 const stdout = std.io.getStdOut().writer();
 const stderr = std.io.getStdErr().writer();
 
+const Node = Ast.Node;
+const NodeList = Ast.NodeList;
+
+const ExtraData = Ast.ExtraData;
+const ExtraDataList = Ast.ExtraDataList;
+
+const Function = Ast.Function;
+const FunctionList = Ast.FunctionList;
+
+const Stmts = Ast.Stmts;
+
 const Tokenizer = @import("tokenizer.zig");
 const Token = Tokenizer.Token;
+const TokenList = Ast.TokenList;
 
 const scope = @import("scope.zig");
 const ScopeManager = scope.ScopeManager;
 const Ident = scope.Ident;
 
-pub const TokenList = std.MultiArrayList(struct {
-    tag: Token.Tag,
-    start: usize,
-});
 const TokenError = Tokenizer.TokenError;
-
-pub const Stmts = std.ArrayList(usize);
-
-pub const ExtraData = struct {
-    init: usize = undefined,
-    cond: usize = undefined,
-    inc: usize = undefined,
-    body: Stmts = undefined,
-};
-pub const ExtraDataList = std.MultiArrayList(ExtraData);
-
-pub const Node = struct {
-    pub const Tag = enum {
-        nd_add,
-            // lhs + rhs
-        nd_sub,
-            // lhs - rhs
-        nd_mul,
-            // lhs * rhs
-        nd_div,
-            // lhs / rhs
-        nd_num,
-            // lhs
-        nd_equal,
-            // lhs == rhs
-        nd_not_equal,
-            // lhs != rhs
-        nd_gt,
-            // lhs < rhs
-        nd_ge,
-            // lhs <= rhs
-        nd_assign,
-            // lhs = rhs
-        nd_lvar,
-            // local variable
-        nd_return,
-            // return statement
-        nd_if_simple,
-            // if statement
-        nd_if,
-        nd_then_else,
-            // if statement and then block and else block
-        nd_while,
-            // while statement
-        nd_for,
-            // for statement
-        nd_block,
-            // block statement
-        nd_call_function_noargs,
-            // function call
-        nd_call_function_have_args,
-            // function call with argument
-        nd_bit_and,
-            // bitand
-        nd_bit_xor,
-            // bit-xor
-        nd_bit_or,
-            // bit-or
-        nd_logic_and,
-            // logic and
-        nd_logic_or,
-            // logic or
-        nd_cond_expr,
-            // condition expression
-        nd_address,
-            // address
-        nd_dreference,
-            // pointer dereference
-    };
-    main_token: usize,
-    lhs: usize = undefined, // NodeLists index
-    rhs: usize = undefined, // NodeLists index
-    val: u32 = 0,           // value of nodes(in nd_num)
-    tag: Tag,
-    ident: usize = undefined,
-    data: usize = undefined,    // extra data index
-};
-
-
-pub const Nodes = std.MultiArrayList(Node);
-
-pub const Function = struct {
-    name: [] const u8,
-    body: usize,
-    memory: u32 = 0,
-    params: std.ArrayList(usize) = undefined,
-};
-pub const FunctionList = std.MultiArrayList(Function);
 
 pub const Parser = struct {
     gpa: Allocator,
@@ -110,7 +31,7 @@ pub const Parser = struct {
     tokens: TokenList = undefined,
     tkidx: usize,           // index of TokenList.
     root: usize,            // NodeList index of rootNode.
-    nodes: Nodes = undefined,
+    nodes: NodeList = undefined,
     functions: FunctionList = undefined,
     scopemng: ScopeManager = undefined,
     memory: u32 = 0,
@@ -129,12 +50,12 @@ pub const Parser = struct {
 
         // トークンリストを作る
         self.tokens = TokenList{};
-        self.nodes = Nodes{};
+        self.nodes = NodeList{};
         self.functions = FunctionList{};
         self.extras = ExtraDataList{};
         self.scopemng = ScopeManager.init(self.gpa);
 
-        var tokenizer = Tokenizer.Tokenizer.init(self.source);   
+        var tokenizer = Tokenizer.init(self.source);   
         while(true) {
             const token = tokenizer.next();
             self.tokens.append(self.gpa, 
@@ -151,52 +72,6 @@ pub const Parser = struct {
         // パースする
         self.parseProgram() catch unreachable;
         return;
-    }
-
-    pub fn getFuncName(self:*Parser, idx:usize) [] const u8 {
-        return self.functions.items(.name)[idx];
-    }
-
-    pub fn getFuncMemory(self: *Parser, idx: usize) u32 {
-        return self.functions.items(.memory)[idx];
-    }
-
-    pub fn getFuncBody(self: *Parser, idx: usize) usize {
-        return self.functions.items(.body)[idx];
-    }
-
-    pub fn getFundParams(self: *Parser, idx: usize) std.ArrayList(usize) {
-        return self.functions.items(.params)[idx];
-    }
-
-    pub fn getVariableOffset(self: *Parser, idx: usize) usize{
-        return self.scopemng.getVariableOffset(idx);
-    }
-
-    pub fn getNodeTag(self:*Parser, node: usize) Node.Tag {
-        return self.nodes.items(.tag)[node];
-    }
-
-    pub fn getNodeValue(self: *Parser, node: usize) u32 {
-        return self.nodes.items(.val)[node];
-    }
-
-    pub fn getNodeLhs(self: *Parser, node: usize) usize {
-        return self.nodes.items(.lhs)[node];
-    }
-
-    pub fn getNodeRhs(self: *Parser, node: usize) usize {
-        return self.nodes.items(.rhs)[node];
-    }
-
-    pub fn getNodeOffset(self: *Parser, node: usize) u32 {
-        const ident = self.nodes.items(.ident)[node];
-        const offset = self.scopemng.getVariableOffset(ident);
-        return offset;
-    }
-
-    pub fn getNodeMainToken(self: *Parser, node: usize) usize {
-        return self.nodes.items(.main_token)[node];
     }
 
     fn addNode(self:*Parser, node: Node) usize {
@@ -220,26 +95,6 @@ pub const Parser = struct {
         const idx = self.extras.len;
         self.extras.append(self.gpa, extra) catch unreachable;
         return idx;
-    }
-
-    pub fn getExtraDataInitNode(self: *Parser, idx: usize) usize {
-        return self.extras.items(.init)[idx];
-    }
-
-    pub fn getExtraDataCondNode(self: *Parser, idx: usize) usize {
-        return self.extras.items(.cond)[idx];
-    }
-
-    pub fn getExtraDataIncNode(self: *Parser, idx: usize) usize {
-        return self.extras.items(.inc)[idx];
-    }
-
-    pub fn getExtraDataBody(self: *Parser, idx: usize) Stmts {
-        return self.extras.items(.body)[idx];
-    }
-
-    pub fn getNodeExtra(self: *Parser, node: usize) usize {
-        return self.nodes.items(.data)[node];
     }
 
     fn nextToken(self: *Parser) usize {
@@ -275,18 +130,10 @@ pub const Parser = struct {
 
     pub fn getTokenSlice(self: *Parser, token: usize) [] const u8 {
         const start = self.tokens.items(.start)[token];
-        var tokenizer = Tokenizer.Tokenizer.init(self.source);
+        var tokenizer = Tokenizer.init(self.source);
 
         const slice = tokenizer.getSlice(start);
         return slice;
-    }
-
-    pub fn getLine(self: *Parser, token: usize) [] const u8 {
-        const start = self.tokens.items(.start)[token];
-        var tokenizer = Tokenizer.Tokenizer.init(self.source);
-
-        const line = tokenizer.getLine(start);
-        return line;
     }
 
     pub fn getStmtNode(self: *Parser, node: usize, stmt: usize) usize {
@@ -843,7 +690,7 @@ pub const Parser = struct {
                 const main_token = self.nextToken();
                 const tk_start = self.tokens.items(.start)[main_token];
 
-                var tokenizer = Tokenizer.Tokenizer.init(self.source);
+                var tokenizer = Tokenizer.init(self.source);
                 const val = tokenizer.getNumValue(tk_start);
 
                 return self.addNode(Node {
